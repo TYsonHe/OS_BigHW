@@ -16,6 +16,7 @@ char* userTable2Char(UserTable* user);
 
 char* SuperBlk_to_Char(SuperBlock* spb);
 
+// ÊµÏÖ×Ö·û´®·Ö¸î
 vector<string> stringSplit(const string& strIn, char delim);
 
 string timestampToString(unsigned int timestamp);

@@ -16,7 +16,7 @@ char* SuperBlk_to_Char(SuperBlock* spb) {
     }
     catch (exception& e)
     {
-        cerr << "出现错误: " << e.what() << endl;
+        cerr << "SuperBlk_to_Char出现错误: " << e.what() << endl;
     }
 }
 
@@ -34,7 +34,7 @@ DiskInode* Char_to_DiskInode(char* ch)
     }
     catch (exception& e)
     {
-        cerr << "出现错误: " << e.what() << endl;
+        cerr << "Char_to_DiskInode出现错误: " << e.what() << endl;
     }
 }
 
@@ -52,6 +52,27 @@ char* Directory_to_Char(Directory* dir)
     }
     catch (exception& e)
     {
-        cerr << "出现错误: " << e.what() << endl;
+        cerr << "Directory_to_Char出现错误: " << e.what() << endl;
     }
+}
+/**************************************************************
+* stringSplit 将字符串按照分隔符分割
+* 参数：strIn  要分割的字符串 delim  分隔符
+* 返回值：vector<string> 分割后的字符串数组
+***************************************************************/
+vector<string> stringSplit(const string& strIn, char delim)
+{
+    char* str = new char[strIn.size() + 1];
+    strcpy(str, strIn.c_str());
+    str[strIn.size()] = '\0';
+    string s;
+    s.append(1, delim);
+    vector<string> res;
+    char* splitted = strtok(str, s.c_str());
+    while (splitted != NULL)
+    {
+        res.push_back(string(splitted));
+        splitted = strtok(NULL, s.c_str());
+    }
+    return res;
 }

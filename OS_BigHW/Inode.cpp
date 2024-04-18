@@ -68,3 +68,32 @@ void Inode::ICopy(Buf* bp, int inumber)
     for (int i = 0; i < NUM_I_ADDR; i++)
         this->i_addr[i] = dp->d_addr[i];
 }
+/**************************************************************
+* WriteI 将内存Inode更新到外存中
+* 参数：
+* 返回值：
+***************************************************************/
+void Inode::WriteI()
+{
+    Buf* bp;
+    BufferManager* bufMgr = fs.GetBufferManager();
+
+    // 从磁盘读取磁盘Inode
+    bp = bufMgr->Bread(POSITION_DISKINODE + (this->i_number - 1) / NUM_INODE_PER_BLOCK);
+    int offset = ((this->i_number - 1) % NUM_INODE_PER_BLOCK) * sizeof(DiskInode);
+
+    DiskInode* dp = new DiskInode;
+    // 将内存Inode复制到磁盘Inode中
+    dp->d_mode = this->i_mode;
+    dp->d_nlink = this->i_nlink;
+    dp->d_uid = this->i_uid;
+    dp->d_gid = this->i_gid;
+    dp->d_size = this->i_size;
+    dp->d_atime = this->i_atime;
+    dp->d_mtime = this->i_mtime;
+    for (int i = 0; i < NUM_I_ADDR; i++)
+        dp->d_addr[i] = this->i_addr[i];
+    memcpy(bp->b_addr + offset, dp, sizeof(DiskInode));
+    bufMgr->Bwrite(bp);
+    delete dp;
+}

@@ -85,10 +85,6 @@ static const int NUM_FILE_INDEX = SIZE_BLOCK / sizeof(int);
 static const int NUM_BLOCK_IFILE = 5;
 static const int NUM_BLOCK_ILARG = NUM_FILE_INDEX * (NUM_I_ADDR - NUM_BLOCK_IFILE) + NUM_BLOCK_IFILE;
 
-// 实现字符串分割
-vector<string>
-stringSplit(const string& strIn, char delim);
-
 /*
  * 用户User类的定义
  * 由于有多个用户，但是没有实现多用户多进程文件读写，还是一种“伪并发”
@@ -389,10 +385,7 @@ public:
 	FileSystem();
 	~FileSystem();
 
-	BufferManager* GetBufferManager()
-	{
-		return this->bufManager;
-	}
+	BufferManager* GetBufferManager();
 
 	// 释放空闲数据盘块
 	void Free(int blkno);
@@ -403,7 +396,6 @@ public:
 	// 获取当前用户的ID
 	short getCurUserID();
 
-	/*Upper文件中的内容*/
 	// 创建文件
 	int fcreate(string path);
 	// 创建文件夹

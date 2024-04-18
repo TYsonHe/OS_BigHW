@@ -57,13 +57,29 @@ void FileSystem::fformat() {
 
 	// 给根目录分配数据盘块号
 	Buf* newBuf = this->Alloc();
-	memcpy(newBuf->b_addr, directory2Char(&rootDir), sizeof(Directory));
+	memcpy(newBuf->b_addr, Directory_to_Char(&rootDir), sizeof(Directory));
 	
 	// 并且写回磁盘数据区中
 	this->bufManager->Bwrite(newBuf);
-	// 给Inode写回数据区位置
+	// 给根目录的Inode写回数据区
 	this->rootDirInode->i_size = sizeof(Directory) / NUM_SUB_DIR * 2;
 	this->rootDirInode->i_addr[0] = newBuf->b_blkno;
+
+	// 根据要求添加目录
+	this->mkdir("/bin");
+	this->mkdir("/etc");
+	this->mkdir("/home");
+	this->mkdir("/dev");
+	// 将rootInode写回磁盘中
+	this->rootDirInode->WriteI();
+
+	// 创建并写入用户表
+	// 但是我们暂时只有一个root用户
+	this->fcreate("/etc/userTable.txt");
+	int filoc = fopen("/etc/userTable.txt");
+	File* userTableFile = &this->openFileTable[filoc];
+	this->fwrite(userTable2Char(this->userTable), sizeof(UserTable), userTableFile); // 需要全部写入
+	this->fclose(userTableFile);
 }
 
 void FileSystem::exit() {
