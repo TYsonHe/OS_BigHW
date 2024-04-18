@@ -1,0 +1,32 @@
+#include "header.h"
+#include "utils.h"
+
+FileSystem fs;
+
+int main()
+{
+	// cout << sizeof(DiskInode);
+	cout << "欢迎来到TysonFiles系统!" << endl;
+	cout << "初始root用户名是root，密码也是root" << endl;
+	// cout << "初始普通用户名是unix，密码也是1" << endl;
+	cout << "自己试试看吧!" << endl
+		<< endl;
+
+	fstream fd;
+	fd.open(DISK_PATH, ios::in);
+	if (!fd.is_open())
+	{
+		printf("文件系统不存在，正在进行初始化\n\n");
+		fs.fformat();
+		fs.exit();
+	}
+	else
+	{
+		cout << "文件系统已存在，正在加载" << endl;
+		fs.init();
+	}
+
+	fs.run();
+
+	return 0;
+}
