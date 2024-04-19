@@ -55,6 +55,67 @@ char* Directory_to_Char(Directory* dir)
         cerr << "Directory_to_Char出现错误: " << e.what() << endl;
     }
 }
+
+/**************************************************************
+* UserTable_to_Char 将UserTable*转换为char*
+* 参数：usertable 要转换的UserTable指针
+* 返回值：char* 转换后的字符
+***************************************************************/
+char* UserTable_to_Char(UserTable* usertable)
+{
+    try
+    {
+        char* ch = reinterpret_cast<char*>(usertable);
+        return ch;
+    }
+    catch (exception& e)
+    {
+        cerr << "UserTable_to_Char出现错误: " << e.what() << endl;
+    }
+}
+
+/**************************************************************
+* Char_to_Directory 将char*转换为Directory*
+* 参数：ch 要转换的字符
+* 返回值：Directory* 转换后的Directory指针
+***************************************************************/
+Directory* Char_to_Directory(char* ch)
+{
+    try
+    {
+        Directory* objPtr = reinterpret_cast<Directory*>(ch);
+        return objPtr;
+    }
+    catch (exception& e)
+    {
+        cerr << "Char_to_Directory出现错误: " << e.what() << endl;
+    }
+}
+
+/**************************************************************
+* IntArray_to_Char 将Int数组转换为char*
+* 参数：arr int数组指针
+* 返回值：char* 转换后的char指针
+***************************************************************/
+char* IntArray_to_Char(int* arr, int len)
+{
+    try
+    {
+        char* ch = new char[len * sizeof(int)];
+        for (int i = 0; i < len; i++)
+        {
+            memcpy(ch, &(arr[i]), sizeof(int));
+            ch += sizeof(int);
+        }
+        ch -= sizeof(int) * len;
+        return ch;
+    }
+    catch (exception& e)
+    {
+        cerr << "IntArray_to_Char出现错误: " << e.what() << endl;
+    }
+}
+
 /**************************************************************
 * stringSplit 将字符串按照分隔符分割
 * 参数：strIn  要分割的字符串 delim  分隔符

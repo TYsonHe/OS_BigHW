@@ -76,10 +76,11 @@ void FileSystem::fformat() {
 	// 创建并写入用户表
 	// 但是我们暂时只有一个root用户
 	this->fcreate("/etc/userTable.txt");
-	int filoc = fopen("/etc/userTable.txt");
-	File* userTableFile = &this->openFileTable[filoc];
-	this->fwrite(userTable2Char(this->userTable), sizeof(UserTable), userTableFile); // 需要全部写入
-	this->fclose(userTableFile);
+	// int filoc = fopen("/etc/userTable.txt");
+	// File* userTableFile = &this->openFileTable[filoc];
+	// this->fwrite(UserTable_to_Char(this->userTable), sizeof(UserTable), userTableFile); // 需要全部写入
+	// this->fclose(userTableFile);
+	this->writeUserTable();
 }
 
 void FileSystem::exit() {

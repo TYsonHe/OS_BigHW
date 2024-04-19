@@ -353,7 +353,8 @@ private:
 	Inode* IGet(int inumber);
 
 	// 查找pInode是否有给定mode的权限
-	int Access(Inode* pInode, unsigned int mode);
+	// 先不用权限
+	// int Access(Inode* pInode, unsigned int mode);
 
 	// 分配一个空闲的外存Inode
 	Inode* IAlloc();

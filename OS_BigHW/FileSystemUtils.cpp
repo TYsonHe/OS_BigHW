@@ -48,6 +48,19 @@ void FileSystem::WriteSpb()
 }
 
 /**************************************************************
+* writeUserTable 将用户表写回磁盘
+* 参数：
+* 返回值：
+***************************************************************/
+void FileSystem::writeUserTable()
+{
+	int filoc = fopen("/etc/userTable.txt");
+	File* userTableFile = &this->openFileTable[filoc];
+	this->fwrite(UserTable_to_Char(this->userTable), sizeof(UserTable), userTableFile); // 需要全部写入
+	this->fclose(userTableFile);
+}
+
+/**************************************************************
 * IAlloc 分配一个空闲的外存Inode
 * 参数：
 * 返回值：Inode* 返回分配到的内存Inode，如果分配失败，返回NULL
@@ -63,7 +76,7 @@ Inode* FileSystem::IAlloc()
     if (this->spb->s_ninode <= 0)
     {
         // 依次读入磁盘Inode区中的磁盘块，搜索其中空闲外存Inode，记入空闲Inode索引表
-        for (int i = 0; i < this->spb->s_isize; i++)
+        for (unsigned int i = 0; i < this->spb->s_isize; i++)
         {
             pBuf = this->bufManager->Bread(POSITION_DISKINODE + i / NUM_INODE_PER_BLOCK);
 
@@ -127,6 +140,50 @@ Inode* FileSystem::IAlloc()
     return pNode;
 }
 
+/**************************************************************
+* Free 释放指定的数据盘块
+* 参数：blkno 要释放的数据盘块号
+* 返回值：
+***************************************************************/
+void FileSystem::Free(int blkno)
+{
+	Buf* pBuf;
+	if (blkno < POSITION_BLOCK)
+	{
+		cout << "不能释放系统盘块" << endl;
+		return;
+	}
+
+	// 如果先前系统中已经没有空闲盘块，现在释放的是系统中第1块空闲盘块
+	if (this->spb->s_nfree <= 0)
+	{
+		this->spb->s_nfree = 1;
+		this->spb->s_free[0] = 0;
+	}
+
+	// 如果SuperBlock中直接管理空闲磁盘块号的栈已满
+	if (this->spb->s_nfree >= NUM_FREE_BLOCK_GROUP)
+	{
+		// 分配一个新缓存块，用于存放新的空闲磁盘块号
+		pBuf = this->bufManager->GetBlk(blkno);
+
+		// 将s_nfree和s_free[100]写入回收盘块的前101个字节
+		// s_free[0]=回收的盘块号
+		// s_nfree=1
+		int* stack = new int[NUM_FREE_BLOCK_GROUP + 1] {0};		// 第一位是链接的上一组的盘块个数
+		stack[0] = this->spb->s_nfree;                          // 第一位是链接的上一组的盘块个数
+		for (int i = 0; i < NUM_FREE_BLOCK_GROUP; i++)
+			stack[i + 1] = this->spb->s_free[i];
+		memcpy(pBuf->b_addr, IntArray_to_Char(stack, NUM_FREE_BLOCK_GROUP + 1), sizeof(int) * NUM_FREE_BLOCK_GROUP + 1);
+		bufManager->Bwrite(pBuf);
+
+		this->spb->s_free[0] = blkno;
+		this->spb->s_nfree = 1;
+	}
+
+	// 释放数据盘块号
+	this->spb->s_free[this->spb->s_nfree++] = blkno;
+}
 
 /**************************************************************
 * IsLoaded 判断指定外存Inode是否已经加载到内存中
@@ -142,6 +199,7 @@ int FileSystem::IsLoaded(int inumber)
 
     return -1;
 }
+
 /**************************************************************
 * IGet 从外存读取指定外存Inode到内存中
 * 参数：inumber 外存Inode编号
@@ -189,6 +247,50 @@ Inode* FileSystem::IGet(int inumber)
     // 将缓冲区中的外存Inode信息拷贝到新分配的内存Inode中
     pInode->ICopy(pBuf, inumber);
     return pInode;
+}
+
+/**************************************************************
+* IPut 释放InodeTable中的Inode节点
+* 参数：pNode 内存Inode指针
+* 返回值：
+***************************************************************/
+void FileSystem::IPut(Inode* pNode)
+{
+	// 当前进程为引用该内存Inode的唯一进程，且准备释放该内存Inode
+	if (pNode->i_count == 1)
+	{
+		pNode->i_atime = unsigned int(time(NULL));
+		pNode->WriteI();
+
+		// 该文件已经没有目录路径指向它
+		if (pNode->i_nlink <= 0)
+		{
+			// 释放该文件占据的数据盘块
+			pNode->ITrunc();
+			pNode->i_mode = 0;
+			// 释放对应的外存Inode
+			this->IFree(pNode->i_number);
+		}
+		pNode->Clean();
+	}
+
+	// 减少内存Inode的引用计数
+	pNode->i_count--;
+}
+
+/**************************************************************
+* IFree 释放外存Inode节点
+* 参数：number 外存Inode编号
+* 返回值：
+***************************************************************/
+void FileSystem::IFree(int number)
+{
+	// spb够用
+	if (this->spb->s_ninode >= NUM_FREE_INODE)
+		return;
+
+	// 将该外存Inode的编号记入空闲Inode索引表，后来的会直接覆盖掉它的内容
+	this->spb->s_inode[this->spb->s_ninode++] = number;
 }
 
 /**************************************************************
@@ -289,12 +391,12 @@ int FileSystem::mkdir(string path)
 	}
 
 	// 如果找到，判断是否有权限写文件
-	if (this->Access(fatherInode, FileMode::WRITE) == 0)
+	/*if (this->Access(fatherInode, FileMode::WRITE) == 0)
 	{
 		cout << "没有权限写文件!" << endl;
 		throw(EACCES);
 		return -1;
-	}
+	}*/
 
 	bool isFull = true;
 	// 当有权限写文件时，判断是否有重名文件而且查看是否有空闲的子目录可以写
@@ -304,7 +406,7 @@ int FileSystem::mkdir(string path)
 	// 读取磁盘的数据
 	Buf* fatherBuf = this->bufManager->Bread(blkno);
 	// 将数据转为目录结构
-	Directory fatherDir = *char2Directory(fatherBuf->b_addr);
+	Directory fatherDir = *Char_to_Directory(fatherBuf->b_addr);
 	// 循环查找目录中的每个元素
 	for (int i = 0; i < NUM_SUB_DIR; i++)
 	{
@@ -425,12 +527,12 @@ int FileSystem::fcreate(string path)
 	}
 
 	// 如果找到，判断是否有权限写文件
-	if (this->Access(fatherInode, FileMode::WRITE) == 0)
+	/*if (this->Access(fatherInode, FileMode::WRITE) == 0)
 	{
 		cout << "没有权限写文件!" << endl;
 		throw(EACCES);
 		return -1;
-	}
+	}*/
 
 	bool isFull = true;
 	int iinDir = 0;
@@ -441,7 +543,7 @@ int FileSystem::fcreate(string path)
 	// 读取磁盘的数据
 	Buf* fatherBuf = this->bufManager->Bread(blkno);
 	// 将数据转为目录结构
-	Directory* fatherDir = char2Directory(fatherBuf->b_addr);
+	Directory* fatherDir = Char_to_Directory(fatherBuf->b_addr);
 	// 循环查找目录中的每个元素
 	for (int i = 0; i < NUM_SUB_DIR; i++)
 	{
@@ -502,4 +604,72 @@ int FileSystem::fcreate(string path)
 	this->IPut(newinode);
 
 	return 0;
+}
+
+/**************************************************************
+* NameI 根据文件路径查找对应的Inode
+* 参数：path 文件路径
+* 返回值：Inode* 返回对应的Inode，如果没有找到，返回NULL
+***************************************************************/
+Inode* FileSystem::NameI(string path)
+{
+	Inode* pInode;
+	Buf* pbuf;
+	vector<string> paths = stringSplit(path, '/'); // 所以要求文件夹和文件的名中不能出现"/"
+	int ipaths = 0;
+	bool isFind = false;
+
+	// 第一个字符为/表示绝对路径
+	if (path.size() != 0 && path[0] == '/') // 从根目录开始查找
+		pInode = this->rootDirInode;
+	else // 相对路径的查找
+		pInode = this->curDirInode;
+	int blkno = pInode->Bmap(0);
+	// 读取磁盘的数据
+
+	while (true)
+	{
+		isFind = false;
+		// 包含path为空的情况
+		if (ipaths == paths.size()) // 这种情况说明找到了对应的文件或目录
+			break;
+		else if (ipaths >= paths.size())
+			return NULL;
+
+		// 如果现有的Inode是目录文件才正确,因为在这里面的循环才会找到文件/目录
+		// 一旦找到文件/目录不会进入这个循环
+		if (pInode->i_mode & Inode::INodeMode::IDIR)
+		{
+			// 计算要读的物理盘块号
+			// 由于目录文件只占一个盘块，所以只有一项不为空
+			int blkno = pInode->Bmap(0);
+			// 读取磁盘的数据
+			pbuf = this->bufManager->Bread(blkno);
+
+			// 将数据转为目录结构
+			Directory* fatherDir = Char_to_Directory(pbuf->b_addr);
+
+			// 循环查找目录中的每个元素
+			for (int i = 0; i < NUM_SUB_DIR; i++)
+			{
+				// 如果找到对应子目录
+				if (paths[ipaths] == fatherDir->d_filename[i])
+				{
+					ipaths++;
+					isFind = true;
+					pInode = this->IGet(fatherDir->d_inodenumber[i]);
+					break;
+				}
+			}
+
+			// 如果没有找到对应的文件或目录
+			if (!isFind)
+				return NULL;
+		}
+		else // 不是目录文件是错误的
+			return NULL;
+	}
+
+	// 到这个部分说明找到了对应的文件或者目录
+	return pInode;
 }
