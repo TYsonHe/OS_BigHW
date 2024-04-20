@@ -4,9 +4,10 @@ Directory* Char_to_Directory(char* ch);
 
 DiskInode* Char_to_DiskInode(char* ch);
 
-SuperBlock* char2SuperBlock(char* ch);
+SuperBlock* Char_to_SuperBlock(char* ch);
 
-UserTable* char2UserTable(char* ch);
+// UserTable* char2UserTable(char* ch);
+UserTable* Char_to_UserTable(char* ch);
 
 char* Directory_to_Char(Directory* dir);
 

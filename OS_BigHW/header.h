@@ -368,7 +368,8 @@ private:
 	void WriteSpb();
 
 	// 将UserTable更新到外存中
-	void writeUserTable();
+	// 固定寻找/etc/userTable.txt文件
+	void WriteUserTable();
 
 	// 根据Inode号释放Inode
 	void IFree(int number);
@@ -419,9 +420,9 @@ public:
 	Directory getDir();
 
 	void fread(File* fp, char*& buffer, int count);
-
-	/****接下来都是在main中可以调用的可交互的函数实现*****/
 	void init();
+	
+	// 终端程序需要用到的命令
 	void ls();
 	void cd(string subname);
 	void rmdir(string subname);

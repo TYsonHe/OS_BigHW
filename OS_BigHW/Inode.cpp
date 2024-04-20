@@ -31,10 +31,11 @@ Inode::~Inode() {
 void Inode::Clean()
 {
     // 参考了Unix V6++ 源码
+    // 注意不能删i_count和i_number,不然初始化时会有bug
+    // this->i_count = 0;
+    // this->i_number = -1;
     this->i_mode = 0;
-    this->i_count = 0;
     this->i_nlink = 0;
-    this->i_number = -1;
     this->i_uid = -1;
     this->i_gid = -1;
     this->i_size = 0;

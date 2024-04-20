@@ -17,6 +17,26 @@ char* SuperBlk_to_Char(SuperBlock* spb) {
     catch (exception& e)
     {
         cerr << "SuperBlk_to_Char出现错误: " << e.what() << endl;
+        return NULL;
+    }
+}
+
+/**************************************************************
+* Char_to_SuperBlock 将char*转换为SuperBlock*
+* 参数：char* 要转换的char的指针
+* 返回值：SuperBlock* 转换后的SuperBlock结构
+***************************************************************/
+SuperBlock* Char_to_SuperBlock(char* ch)
+{
+    try
+    {
+        SuperBlock* objPtr = reinterpret_cast<SuperBlock*>(ch);
+        return objPtr;
+    }
+    catch (exception& e)
+    {
+        cerr << "Char_to_SuperBlock出现错误: " << e.what() << endl;
+        return NULL;
     }
 }
 
@@ -35,6 +55,7 @@ DiskInode* Char_to_DiskInode(char* ch)
     catch (exception& e)
     {
         cerr << "Char_to_DiskInode出现错误: " << e.what() << endl;
+        return NULL;
     }
 }
 
@@ -53,6 +74,7 @@ char* Directory_to_Char(Directory* dir)
     catch (exception& e)
     {
         cerr << "Directory_to_Char出现错误: " << e.what() << endl;
+        return NULL;
     }
 }
 
@@ -71,6 +93,26 @@ char* UserTable_to_Char(UserTable* usertable)
     catch (exception& e)
     {
         cerr << "UserTable_to_Char出现错误: " << e.what() << endl;
+        return NULL;
+    }
+}
+
+/**************************************************************
+* Char_to_UserTable 将char*转换为UserTable*
+* 参数：ch 要转换的char指针
+* 返回值：UserTable* 转换后的UserTable结构
+***************************************************************/
+UserTable* Char_to_UserTable(char* ch)
+{
+    try
+    {
+        UserTable* objPtr = reinterpret_cast<UserTable*>(ch);
+        return objPtr;
+    }
+    catch (exception& e)
+    {
+        cerr << "Char_to_UserTable出现错误: " << e.what() << endl;
+        return NULL;
     }
 }
 
@@ -89,6 +131,7 @@ Directory* Char_to_Directory(char* ch)
     catch (exception& e)
     {
         cerr << "Char_to_Directory出现错误: " << e.what() << endl;
+        return NULL;
     }
 }
 
@@ -113,6 +156,7 @@ char* IntArray_to_Char(int* arr, int len)
     catch (exception& e)
     {
         cerr << "IntArray_to_Char出现错误: " << e.what() << endl;
+        return NULL;
     }
 }
 

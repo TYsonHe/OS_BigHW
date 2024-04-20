@@ -131,6 +131,7 @@
     <ClCompile Include="BufferManager.cpp" />
     <ClCompile Include="Directory.cpp" />
     <ClCompile Include="File.cpp" />
+    <ClCompile Include="FileSystemTerminal.cpp" />
     <ClCompile Include="FileSystemTop.cpp" />
     <ClCompile Include="FileSystemUtils.cpp" />
     <ClCompile Include="Inode.cpp" />
