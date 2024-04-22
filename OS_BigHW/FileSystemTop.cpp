@@ -171,15 +171,13 @@ void FileSystem::run()
 {
     this->login();
 
-    cout << "输入help可以查看命令清单" << endl
-        << endl;
+    cout << "请输入help查看使用指南" << endl;
     vector<string> input;
     string strIn;
     while (true)
     {
         input.clear();
-        cout << endl
-            << this->curName << this->curDir << ">";
+        cout<< this->curName<<"@FileSystem-2153698 \t " << this->curDir << ">"; // 保持和Linux控制台一致
         getline(cin, strIn);
         input = stringSplit(strIn, ' ');
         if (input.size() == 0)
@@ -225,7 +223,7 @@ void FileSystem::run()
                     cout << "输入非法!" << endl;
                     continue;
                 }
-                this->mkdirout(input[1]);
+                this->mkdir_terminal(input[1]);
             }
             else if (input[0] == "dir")
             {
@@ -254,7 +252,7 @@ void FileSystem::run()
                     cout << "输入非法!" << endl;
                     continue;
                 }
-                this->removefile(input[1]);
+                this->removeFile(input[1]);
             }
             else if (input[0] == "open")
             {
@@ -336,7 +334,16 @@ void FileSystem::run()
                     cout << "输入非法!" << endl;
                     continue;
                 }
-                this->changeseek(input[1], stoi(input[2]));
+                this->change_fseek(input[1], stoi(input[2]));
+            }
+            else if (input[0] == "flseek")
+            {
+                if (input.size() < 3 || input.size() > 2)
+                {
+                    cout << "输入非法!" << endl;
+                    continue;
+                }
+                this->flseek(input[1]);
             }
 
             // 用户相关
@@ -349,7 +356,7 @@ void FileSystem::run()
                 }
                 this->relogin();
             }
-            else if (input[0] == "chgroup")
+            /*else if (input[0] == "chgroup")
             {
                 if (input.size() < 1 || input.size() > 1)
                 {
@@ -357,8 +364,8 @@ void FileSystem::run()
                     continue;
                 }
                 this->chgroup();
-            }
-            else if (input[0] == "adduser")
+            }*/
+            /*else if (input[0] == "adduser")
             {
                 if (input.size() < 1 || input.size() > 1)
                 {
@@ -366,8 +373,8 @@ void FileSystem::run()
                     continue;
                 }
                 this->adduser();
-            }
-            else if (input[0] == "deluser")
+            }*/
+            /*else if (input[0] == "deluser")
             {
                 if (input.size() < 1 || input.size() > 1)
                 {
@@ -375,7 +382,7 @@ void FileSystem::run()
                     continue;
                 }
                 this->deluser();
-            }
+            }*/
             else if (input[0] == "listuser")
             {
                 if (input.size() < 1 || input.size() > 1)

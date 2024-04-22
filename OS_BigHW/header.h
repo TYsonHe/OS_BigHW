@@ -102,11 +102,11 @@ public:
 	// 添加root用户
 	void AddRoot();
 	// 添加用户
-	void AddUser(const short id, const char* name, const char* password, const short givengid);
+	// void AddUser(const short id, const char* name, const char* password, const short givengid);
 	// 删除用户
-	void DeleteUser(const short id, const char* name);
+	// void DeleteUser(const short id, const char* name);
 
-	void ChangerUserGID(const short id, const char* name, const short gid);
+	// void ChangerUserGID(const short id, const char* name, const short gid);
 
 	short GetGId(const short id);
 
@@ -426,25 +426,27 @@ public:
 	void ls();
 	void cd(string subname);
 	void rmdir(string subname);
-	void mkdirout(string subname);
+	void mkdir_terminal(string subname);
 	void dir();
 
 	void openFile(string path);
 	void createFile(string path);
-	void removefile(string path);
+	void removeFile(string path);
 	void closeFile(string path);
 	void writeFile(string path, int mode);
 	void printFile(string path);
+	void change_fseek(string path, int offset);
+	void flseek(string path);
 	void cpfwin(string path);
 	void cpffs(string filename, string winpath, int count);
 	void prin0penFileList();
 	void chmod(string path, string mode);
-	void changeseek(string path, int offset);
+	
 
 	void relogin();
-	void adduser();
-	void chgroup();
-	void deluser();
+	// void adduser();
+	// void chgroup();
+	// void deluser();
 	void printUserList();
 
 	void help();

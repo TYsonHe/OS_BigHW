@@ -42,3 +42,17 @@ short UserTable::GetGId(const short id)
 			return this->u_gid[i];
 	return -1;
 }
+
+/**************************************************************
+* FindUser 查找用户
+* 参数：name 用户名 password 密码
+* 返回值： 返回用户id	如果没有找到返回-1
+***************************************************************/
+short UserTable::FindUser(const char* name, const char* password)
+{
+	for (int i = 0; i < NUM_USER; i++)
+		if (strcmp(this->u_name[i], name) == 0 && strcmp(this->u_password[i], password) == 0)
+			return this->u_id[i];
+	return -1;
+
+}
