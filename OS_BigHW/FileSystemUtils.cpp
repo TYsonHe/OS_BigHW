@@ -19,7 +19,20 @@ FileSystem::~FileSystem()
 		delete this->rootDirInode;
 	delete this->curDirInode;*/
 }
- 
+
+/**************************************************************
+* GetAbsolutionPath 获取绝对路径，假设路径正确
+* 参数：path 相对路径或绝对路径
+* 返回值：string 绝对路径
+***************************************************************/
+string FileSystem::GetAbsolutionPath(string path)
+{
+	if (path[0] == '/')
+		return path;
+	else
+		return this->curDir + path;
+}
+
 /**************************************************************
 * GetBufferManager 得到文件系统的缓存管理类
 * 参数：

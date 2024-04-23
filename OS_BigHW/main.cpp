@@ -5,12 +5,9 @@ FileSystem fs;
 
 int main()
 {
-	// cout << sizeof(DiskInode);
 	cout << "欢迎来到TysonFiles系统!" << endl;
 	cout << "初始root用户名是root，密码也是root" << endl;
-	// cout << "初始普通用户名是unix，密码也是1" << endl;
-	cout << "自己试试看吧!" << endl
-		<< endl;
+	cout<< endl;
 
 	fstream fd;
 	fd.open(DISK_PATH, ios::in);

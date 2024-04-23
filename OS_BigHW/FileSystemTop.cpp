@@ -174,241 +174,219 @@ void FileSystem::run()
     cout << "请输入help查看使用指南" << endl;
     vector<string> input;
     string strIn;
+    bool needEndl = true;
     while (true)
     {
         input.clear();
-        cout<< this->curName<<"@FileSystem-2153698 \t " << this->curDir << ">"; // 保持和Linux控制台一致
+        if(needEndl)
+            cout << endl;
+        cout<< this->curName<<"@FileSystem-2153698    " << this->curDir << ">"; // 保持和Linux控制台一致
         getline(cin, strIn);
         input = stringSplit(strIn, ' ');
         if (input.size() == 0)
+        {
+            needEndl = false;
             continue;
+        }
 
         try
         {
             if (input.size() < 1)
+            {
+                needEndl = false;
                 continue;
-
-            // 目录管理
-            if (input[0] == "ls") // 查看子目录
-            {
-                if (input.size() > 1)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->ls();
             }
-            else if (input[0] == "cd") // 进入子目录
+            else if (input[0] == "clear")
             {
-                if (input.size() < 2 || input.size() > 2)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->cd(input[1]);
-            }
-            else if (input[0] == "rmdir") // 删除子目录
-            {
-                if (input.size() < 2 || input.size() > 2)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->rmdir(input[1]);
-            }
-            else if (input[0] == "mkdir")
-            {
-                if (input.size() < 2 || input.size() > 2)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->mkdir_terminal(input[1]);
-            }
-            else if (input[0] == "dir")
-            {
-                if (input.size() < 1 || input.size() > 1)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->dir();
-            }
-
-            // 文件管理
-            else if (input[0] == "touch")
-            {
-                if (input.size() < 2 || input.size() > 2)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->createFile(input[1]);
-            }
-            else if (input[0] == "rm")
-            {
-                if (input.size() < 2 || input.size() > 2)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->removeFile(input[1]);
-            }
-            else if (input[0] == "open")
-            {
-                if (input.size() < 2 || input.size() > 2)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->openFile(input[1]);
-            }
-            else if (input[0] == "close")
-            {
-                if (input.size() < 2 || input.size() > 2)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->closeFile(input[1]);
-            }
-            else if (input[0] == "write")
-            {
-                if (input.size() < 2 || input.size() > 3)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                int mode = input.size() == 3 ? atoi(input[2].c_str()) : 0;
-                this->writeFile(input[1], mode);
-            }
-            else if (input[0] == "print")
-            {
-                if (input.size() < 2 || input.size() > 2)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->printFile(input[1]);
-            }
-            else if (input[0] == "cpffs")
-            {
-                if (input.size() < 4 || input.size() > 4)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->cpffs(input[1], input[2], stoi(input[3]));
-            }
-            else if (input[0] == "cpfwin")
-            {
-                if (input.size() < 2 || input.size() > 2)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->cpfwin(input[1]);
-            }
-            else if (input[0] == "chmod")
-            {
-                if (input.size() < 3 || input.size() > 3)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->chmod(input[1], input[2]);
-            }
-            else if (input[0] == "listopen")
-            {
-                if (input.size() < 1 || input.size() > 1)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->prin0penFileList();
-            }
-            else if (input[0] == "fseek")
-            {
-                if (input.size() < 3 || input.size() > 3)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->change_fseek(input[1], stoi(input[2]));
-            }
-            else if (input[0] == "flseek")
-            {
-                if (input.size() < 3 || input.size() > 2)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->flseek(input[1]);
-            }
-
-            // 用户相关
-            else if (input[0] == "relogin")
-            {
-                if (input.size() < 1 || input.size() > 1)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->relogin();
-            }
-            /*else if (input[0] == "chgroup")
-            {
-                if (input.size() < 1 || input.size() > 1)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->chgroup();
-            }*/
-            /*else if (input[0] == "adduser")
-            {
-                if (input.size() < 1 || input.size() > 1)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->adduser();
-            }*/
-            /*else if (input[0] == "deluser")
-            {
-                if (input.size() < 1 || input.size() > 1)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->deluser();
-            }*/
-            else if (input[0] == "listuser")
-            {
-                if (input.size() < 1 || input.size() > 1)
-                {
-                    cout << "输入非法!" << endl;
-                    continue;
-                }
-                this->printUserList();
-            }
-
-            else if (input[0] == "format")
-            {
-                this->format();
-                this->exit();
-                this->login();
-            }
-            else if (input[0] == "help")
-                this->help();
-            else if (input[0] == "exit")
-            {
-                this->exit();
-                break;
+                needEndl = false;
+                system("cls");
             }
             else
             {
-                cout << "指令不存在，请通过help查阅支持功能" << endl;
+                // 目录管理
+                if (input[0] == "ls") // 查看子目录
+                {
+                    if (input.size() > 1)
+                    {
+                        cout << "输入非法!" << endl;
+                        continue;
+                    }
+                    this->ls();
+                    needEndl = true;
+                }
+                else if (input[0] == "cd") // 进入子目录
+                {
+                    if (input.size() < 2 || input.size() > 2)
+                    {
+                        cout << "输入非法!" << endl;
+                        continue;
+                    }
+                    this->cd(input[1]);
+                    needEndl = false;
+
+                }
+                else if (input[0] == "rmdir") // 删除子目录
+                {
+                    if (input.size() < 2 || input.size() > 2)
+                    {
+                        cout << "输入非法!" << endl;
+                        continue;
+                    }
+                    this->rmdir(input[1]);
+                    needEndl = false;
+                }
+                else if (input[0] == "mkdir")
+                {
+                    if (input.size() < 2 || input.size() > 2)
+                    {
+                        cout << "输入非法!" << endl;
+                        continue;
+                    }
+                    this->mkdir_terminal(input[1]);
+                    needEndl = false;
+                }
+                else if (input[0] == "dir")
+                {
+                    if (input.size() < 1 || input.size() > 1)
+                    {
+                        cout << "输入非法!" << endl;
+                        continue;
+                    }
+                    this->dir();
+                    needEndl = true;
+                }
+
+                // 文件管理
+                else if (input[0] == "touch")
+                {
+                    if (input.size() < 2 || input.size() > 2)
+                    {
+                        cout << "输入非法!" << endl;
+                        continue;
+                    }
+                    this->createFile(input[1]);
+                    needEndl = false;
+                }
+                else if (input[0] == "rm")
+                {
+                    if (input.size() < 2 || input.size() > 2)
+                    {
+                        cout << "输入非法!" << endl;
+                        continue;
+                    }
+                    this->removeFile(input[1]);
+                    needEndl = false;
+                }
+                else if (input[0] == "open")
+                {
+                    if (input.size() < 2 || input.size() > 2)
+                    {
+                        cout << "输入非法!" << endl;
+                        continue;
+                    }
+                    this->openFile(input[1]);
+                    needEndl = false;
+                }
+                else if (input[0] == "close")
+                {
+                    if (input.size() < 2 || input.size() > 2)
+                    {
+                        cout << "输入非法!" << endl;
+                        continue;
+                    }
+                    this->closeFile(input[1]);
+                    needEndl = false;
+                }
+                else if (input[0] == "write")
+                {
+                    if (input.size() < 2 || input.size() > 3)
+                    {
+                        cout << "输入非法!" << endl;
+                        continue;
+                    }
+                    int mode = input.size() == 3 ? atoi(input[2].c_str()) : 0;
+                    this->writeFile(input[1], mode);
+                }
+                else if (input[0] == "print")
+                {
+                    if (input.size() < 2 || input.size() > 2)
+                    {
+                        cout << "输入非法!" << endl;
+                        continue;
+                    }
+                    this->printFile(input[1]);
+                }
+                else if (input[0] == "cpffs")
+                {
+                    if (input.size() < 4 || input.size() > 4)
+                    {
+                        cout << "输入非法!" << endl;
+                        continue;
+                    }
+                    this->copy_from_fs(input[1], input[2], stoi(input[3]));
+                }
+                else if (input[0] == "cpfwin")
+                {
+                    if (input.size() < 2 || input.size() > 2)
+                    {
+                        cout << "输入非法!" << endl;
+                        continue;
+                    }
+                    this->copy_from_win(input[1]);
+                }
+                else if (input[0] == "chmod")
+                {
+                    if (input.size() < 3 || input.size() > 3)
+                    {
+                        cout << "输入非法!" << endl;
+                        continue;
+                    }
+                    this->chmod(input[1], input[2]);
+                }
+                else if (input[0] == "listopen")
+                {
+                    if (input.size() < 1 || input.size() > 1)
+                    {
+                        cout << "输入非法!" << endl;
+                        continue;
+                    }
+                    this->print0penFileList();
+                }
+                else if (input[0] == "fseek")
+                {
+                    if (input.size() < 3 || input.size() > 3)
+                    {
+                        cout << "输入非法!" << endl;
+                        continue;
+                    }
+                    this->change_fseek(input[1], stoi(input[2]));
+                }
+                else if (input[0] == "flseek")
+                {
+                    if (input.size() < 3 || input.size() > 2)
+                    {
+                        cout << "输入非法!" << endl;
+                        continue;
+                    }
+                    this->flseek(input[1]);
+                }
+                else if (input[0] == "format")
+                {
+                    this->format();
+                    this->exit();
+                    this->login();
+                }
+                else if (input[0] == "help")
+                    this->help();
+                else if (input[0] == "exit")
+                {
+                    this->exit();
+                    break;
+                }
+                else
+                {
+                    cout << "指令不存在，请通过help查阅支持功能";
+                }
             }
         }
         catch (int& e)

@@ -11,7 +11,7 @@ void FileSystem::help()
     printf("下列命令中带'<>'的项是必须的，带'[]'的项是可选择的\n");
     printf("请注意：本系统中路径用'/'分隔，windows系统路径用'\\'分割\n");
     printf("        VS中默认编码是GBK,想要正确输出文件内容，请保持编码一致\n");
-    cout << "        \033[31m请勿随便关掉控制台,想要正确退出系统一定要输入exit\033[0m\n"; // 设置用红色字打印出来
+    cout <<"        \033[31m请勿随便关掉控制台,想要正确退出系统一定要输入exit\033[0m\n"; // 设置用红色字打印出来
     printf("--------------目录相关---------------\n");
     printf("ls                                      查看当前目录下的子目录\n");
     printf("dir                                     查看当前目录下的详细信息\n");
@@ -22,10 +22,10 @@ void FileSystem::help()
     printf("touch <file-name>                       在当前目录下创建名称为file-name的文件\n");
     printf("rm    <file-name>                       删除当前目录里名称为file-name的文件\n");
     printf("open  <file-name>                       打开当前目录里名称为file-name的文件\n");
-    /*printf("chmod <file-name> <mode>                修改当前目录下名称为file-name的文件的权限为mode\n");
+    printf("chmod <file-name> <mode>                修改当前目录下名称为file-name的文件的权限为mode\n");
     printf("                                        mode格式:rwrwrw,r代表可读,w代表可写,-代表没有这个权限\n");
     printf("                                                三组分别代表文件创建者权限、同组用户权限和其他用户权限\n");
-    printf("                                                eg. rwr-r-代表文件创建者权限可读写、同组用户权限可读和其他用户权限可读\n");*/
+    printf("                                                eg. rwr-r-代表文件创建者权限可读写、同组用户权限可读和其他用户权限可读\n");
     printf("close <file-name>                       关闭当前目录里名称为file-name的文件\n");
     printf("print <file-name>                       读取并打印当前目录里名称为file-name的文件内容(需要先打开文件)\n");
     printf("fseek <file-name> <offset>              移动文件指针offset个偏移量，可以为负\n");
@@ -37,13 +37,8 @@ void FileSystem::help()
     printf("cpffs <file-name> <win-path> <count>    将本系统上当前目录中名称为file-name的文件按从文件指针开始的位置复制count个字节\n");
     printf("                                        到电脑上路径为win-path的文件里(需要先打开文件)\n");
     printf("listopen                                打印已打开文件列表\n");
-    printf("--------------用户相关---------------\n");
-    printf("relogin                                 重新登录,会关闭所有的文件,完成之前所有的任务\n");
-    /*printf("adduser                                 添加新用户,但是只能由root用户操作\n");
-    printf("deluser                                 删除用户,但是只能由root用户操作\n");
-    printf("chgroup                                 改变用户用户组,但是只能由root用户操作\n");*/
-    printf("listuser                                打印所有用户信息\n");
     printf("----------------其他----------------\n");
+    printf("clear                                   清空屏幕内容\n");
     printf("format                                  格式化文件系统\n");
     printf("exit                                    退出系统\n");
 }
@@ -98,7 +93,6 @@ void FileSystem::ls()
             break;
         cout << dir->d_filename[i] << "\t";
     }
-    // cout << endl;
 }
 
 /**************************************************************
@@ -182,7 +176,37 @@ void FileSystem::rmdir(string subname)
 ***************************************************************/
 void FileSystem::dir()
 {
-
+    cout<< this->curDir << "目录下的文件:" << endl;
+    Directory* dir = this->curDirInode->GetDir();
+    int i;
+    cout << std::left << setw(12) << "所有权限"
+        << std::left << setw(12) << "当前权限"
+        << std::left << setw(20) << "修改时间"
+        << std::left << setw(10) << "文件类型"
+        << std::left << setw(15) << "文件大小"
+        << std::left << "文件名" << endl;
+    for (i = 0; i < NUM_SUB_DIR; i++)
+    {
+        if (dir->d_inodenumber[i] == 0)
+            break;
+        Inode* p = this->IGet(dir->d_inodenumber[i]);
+        string time = Timestamp_to_String(p->i_mtime);
+        if (p->i_mode & Inode::INodeMode::IFILE)
+            cout << std::left << setw(12) << FileMode_to_String(p->i_mode)
+            << std::left << setw(12) << p->GetModeString(this->curId, this->userTable->GetGId(this->curId))
+            << std::left << setw(20) << time
+            << std::left << setw(10) << " "
+            << std::left << setw(15) << p->i_size
+            << std::left << dir->d_filename[i] << endl;
+        else if (p->i_mode & Inode::INodeMode::IDIR)
+            cout << std::left << setw(12) << FileMode_to_String(p->i_mode)
+            << std::left << setw(12) << p->GetModeString(this->curId, this->userTable->GetGId(this->curId))
+            << std::left << setw(20) << time
+            << std::left << setw(10) << "<DIR>"
+            << std::left << setw(15) << " "
+            << std::left << dir->d_filename[i] << endl;
+        this->IPut(p);
+    }
 }
 
 /**************************************************************
@@ -266,7 +290,7 @@ void FileSystem::change_fseek(string path, int offset)
         return;
     }
     File* fp = &(this->openFileTable[fd - 1]);
-    if ((fp->f_offset + offset) < 0 || (fp->f_offset + offset) > p->i_size)
+    if ((fp->f_offset + offset) < 0 || int(fp->f_offset + offset) > p->i_size)
     {
         cout << "文件指针超出范围!" << endl;
         return;
@@ -297,4 +321,70 @@ void FileSystem::flseek(string path)
     }
     File* fp = &(this->openFileTable[fd - 1]);
     cout << "当前文件指针位置: " << fp->f_offset << endl;
+}
+
+/**************************************************************
+* copy_from_win 将Windows系统下的文件复制进本FileSystem
+* 参数：path Windows下文件路径
+* 返回值：
+***************************************************************/
+void FileSystem::copy_from_win(string path)
+{
+
+}
+
+/**************************************************************
+* copy_from_fs 将本FileSystem系统当前目录下的文件复制进Windows系统中
+* 参数：filename 文件名 winpath Windows下文件路径 count 复制的字节数（从当前该文件指针开始）
+* 返回值：
+***************************************************************/
+void FileSystem::copy_from_fs(string filename, string winpath, int count)
+{
+
+}
+
+/**************************************************************
+* print0penFileList 打印打开文件列表
+* 参数：
+* 返回值：
+***************************************************************/
+void FileSystem::print0penFileList()
+{
+
+}
+
+/**************************************************************
+* chmod 更改文件权限
+* 参数：path 文件路径 mode 权限参数
+* 返回值：
+***************************************************************/
+void FileSystem::chmod(string path, string mode)
+{
+
+}
+
+/**************************************************************
+* format 格式化磁盘
+* 参数：
+* 返回值：
+***************************************************************/
+void FileSystem::format()
+{
+    cout << "确定要进行格式化?[y/n] ";
+    string strIn;
+    getline(cin, strIn);
+    
+    if (strIn == "y" || strIn == "Y")
+    {
+        cout << "正在格式化……" << endl;
+        this->fformat();
+        cout << "格式化结束" << endl;
+    }
+    else if (strIn == "n" || strIn == "N")
+        return;
+    else
+    {
+        cout << "输入非法" << endl;
+        return;
+    }
 }

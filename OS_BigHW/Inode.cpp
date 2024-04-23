@@ -46,6 +46,26 @@ void Inode::Clean()
 }
 
 /**************************************************************
+* GetParentInumber 获取父目录inodenumber
+* 参数：
+* 返回值：int 返回父目录的inodenumber
+***************************************************************/
+int Inode::GetParentInumber()
+{
+    
+    if (!(this->i_mode & Inode::INodeMode::IDIR))// 非目录文件
+        return NULL;
+
+    BufferManager* bufMgr = fs.GetBufferManager();
+
+    // 先获取本目录的目录项，它存有父目录位置
+    Buf* bp = bufMgr->Bread(this->i_addr[0]);
+    Directory* dir = Char_to_Directory(bp->b_addr);
+
+    return dir->d_inodenumber[1];
+}
+
+/**************************************************************
 * ITrunc 释放数据盘块
 * 参数：
 * 返回值：
@@ -130,6 +150,54 @@ void Inode::WriteI()
     memcpy(bp->b_addr + offset, dp, sizeof(DiskInode));
     bufMgr->Bwrite(bp);
     delete dp;
+}
+
+/**************************************************************
+* GetDir 获取目录内容
+* 参数：
+* 返回值：Directory* 返回目录指针
+***************************************************************/
+Directory* Inode::GetDir()
+{
+    // 非目录文件不能获取目录内容
+    if (!(this->i_mode & Inode::INodeMode::IDIR))
+        return NULL;
+
+    BufferManager* bufMgr = fs.GetBufferManager();
+
+    Buf* bp = bufMgr->Bread(this->i_addr[0]);
+    Directory* dir = Char_to_Directory(bp->b_addr);
+
+    return dir;
+}
+
+/**************************************************************
+* GetModeString 根据用户id和gid获取文件权限字符串
+* 参数： id 用户id gid 用户组id
+* 返回值：permissionString 共6位，没有x权限
+***************************************************************/
+// 根据id和gid获取文件权限字符串
+string Inode::GetModeString(int id, int gid)
+{
+    string permissionString;
+
+    if (id == this->i_uid)
+    {
+        // 所有者权限
+        permissionString += (this->i_mode & OWNER_R) ? "r" : "-";
+        permissionString += (this->i_mode & OWNER_W) ? "w" : "-";
+    }
+    else if (gid == this->i_gid)
+    {
+        permissionString += (this->i_mode & GROUP_R) ? "r" : "-";
+        permissionString += (this->i_mode & GROUP_W) ? "w" : "-";
+    }
+    else
+    {
+        permissionString += (this->i_mode & OTHER_R) ? "r" : "-";
+        permissionString += (this->i_mode & OTHER_W) ? "w" : "-";
+    }
+    return permissionString;
 }
 
 /**************************************************************

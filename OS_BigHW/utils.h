@@ -20,6 +20,6 @@ char* SuperBlk_to_Char(SuperBlock* spb);
 // ÊµÏÖ×Ö·û´®·Ö¸î
 vector<string> stringSplit(const string& strIn, char delim);
 
-string timestampToString(unsigned int timestamp);
+string Timestamp_to_String(unsigned int timestamp);
 
-string mode2String(unsigned short mode);
+string FileMode_to_String(unsigned short mode);

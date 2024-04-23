@@ -161,6 +161,57 @@ char* IntArray_to_Char(int* arr, int len)
 }
 
 /**************************************************************
+* FileMode_to_String 将文件权限转化为6位标识，没有x执行权限
+* 参数：mode 文件权限
+* 返回值：permissionString
+***************************************************************/
+string FileMode_to_String(unsigned short mode)
+{
+    /*
+        OWNER_R = 0x400,
+        OWNER_W = 0x200,
+        OWNER_X = 0x100,
+        GROUP_R = 0x40,
+        GROUP_W = 0x20,
+        GROUP_X = 0x10,
+        OTHER_R = 0x4,
+        OTHER_W = 0x2,
+        OTHER_X = 0x1,*/
+    std::string permissionString;
+
+    // 所有者权限
+    permissionString += (mode & Inode::OWNER_R) ? "r" : "-";
+    permissionString += (mode & Inode::OWNER_W) ? "w" : "-";
+
+    // 组权限
+    permissionString += (mode & Inode::GROUP_R) ? "r" : "-";
+    permissionString += (mode & Inode::GROUP_W) ? "w" : "-";
+
+    // 其他用户权限
+    permissionString += (mode & Inode::OTHER_R) ? "r" : "-";
+    permissionString += (mode & Inode::OTHER_W) ? "w" : "-";
+
+    return permissionString;
+}
+
+
+/**************************************************************
+* Timestamp_to_String 将时间戳转化为字符串
+* 参数：timestamp 时间戳
+* 返回值：string 时间字符串
+***************************************************************/
+string Timestamp_to_String(unsigned int timestamp)
+{
+    time_t t = static_cast<time_t>(timestamp);
+    tm* timeInfo = localtime(&t);
+
+    char buffer[80];
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeInfo);
+
+    return string(buffer);
+}
+
+/**************************************************************
 * stringSplit 将字符串按照分隔符分割
 * 参数：strIn  要分割的字符串 delim  分隔符
 * 返回值：vector<string> 分割后的字符串数组
@@ -181,3 +232,4 @@ vector<string> stringSplit(const string& strIn, char delim)
     }
     return res;
 }
+

@@ -437,17 +437,17 @@ public:
 	void printFile(string path);
 	void change_fseek(string path, int offset);
 	void flseek(string path);
-	void cpfwin(string path);
-	void cpffs(string filename, string winpath, int count);
-	void prin0penFileList();
+	void copy_from_win(string path);
+	void copy_from_fs(string filename, string winpath, int count);
+	void print0penFileList();
 	void chmod(string path, string mode);
 	
 
-	void relogin();
+	// void relogin();
 	// void adduser();
 	// void chgroup();
 	// void deluser();
-	void printUserList();
+	// void printUserList();
 
 	void help();
 	void format();
