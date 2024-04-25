@@ -427,7 +427,7 @@ public:
 	void cd(string subname);
 	void rmdir(string subname);
 	void mkdir_terminal(string subname);
-	void dir();
+	void ll();
 
 	void openFile(string path);
 	void createFile(string path);

@@ -14,7 +14,7 @@ void FileSystem::help()
     cout <<"        \033[31m请勿随便关掉控制台,想要正确退出系统一定要输入exit\033[0m\n"; // 设置用红色字打印出来
     printf("--------------目录相关---------------\n");
     printf("ls                                      查看当前目录下的子目录\n");
-    printf("dir                                     查看当前目录下的详细信息\n");
+    printf("ll                                      查看当前目录下的详细信息\n");
     printf("cd    <dir-name>                        打开在当前目录下名称为dir-name的子目录\n");
     printf("mkdir <dir-name>                        创建在当前目录下名称为dir-name的子目录\n");
     printf("rmdir <dir-name>                        删除在当前目录下名称为dir-name的子目录\n");
@@ -24,10 +24,10 @@ void FileSystem::help()
     printf("open  <file-name>                       打开当前目录里名称为file-name的文件\n");
     printf("chmod <file-name> <mode>                修改当前目录下名称为file-name的文件的权限为mode\n");
     printf("                                        mode格式:rwrwrw,r代表可读,w代表可写,-代表没有这个权限\n");
-    printf("                                                三组分别代表文件创建者权限、同组用户权限和其他用户权限\n");
-    printf("                                                eg. rwr-r-代表文件创建者权限可读写、同组用户权限可读和其他用户权限可读\n");
+    printf("                                        三组分别代表文件创建者权限、同组用户权限和其他用户权限\n");
+    printf("                                        eg. rwr-r-代表文件创建者权限可读写、同组用户权限可读和其他用户权限可读\n");
     printf("close <file-name>                       关闭当前目录里名称为file-name的文件\n");
-    printf("print <file-name>                       读取并打印当前目录里名称为file-name的文件内容(需要先打开文件)\n");
+    printf("cat <file-name>                         读取并打印当前目录里名称为file-name的文件内容(需要先打开文件)\n");
     printf("fseek <file-name> <offset>              移动文件指针offset个偏移量，可以为负\n");
     printf("write <file-name> [mode]                在当前目录里名称为file-name的文件里开始写入(需要先打开文件)\n");
     printf("                                        mode可选,有三种模式:0表示从文件头位置开始写,\n");
@@ -170,11 +170,11 @@ void FileSystem::rmdir(string subname)
 }
 
 /**************************************************************
-* dir 查看当前目录的详细信息
+* ll 查看当前目录的详细信息
 * 参数：
 * 返回值：
 ***************************************************************/
-void FileSystem::dir()
+void FileSystem::ll()
 {
     cout<< this->curDir << "目录下的文件:" << endl;
     Directory* dir = this->curDirInode->GetDir();
@@ -216,7 +216,17 @@ void FileSystem::dir()
 ***************************************************************/
 void FileSystem::openFile(string path)
 {
-
+    int fd = this->fopen(path);
+    if (fd == -1)
+    {
+        cerr << "文件打开失败!" << endl;
+        return;
+    }
+    else
+    {
+        this->openFileMap[this->GetAbsolutionPath(path)] = fd + 1;
+        cout << "文件打开成功!" << endl;
+    }
 }
 
 /**************************************************************
@@ -226,7 +236,18 @@ void FileSystem::openFile(string path)
 ***************************************************************/
 void FileSystem::closeFile(string path)
 {
-
+    int fd = this->openFileMap[this->GetAbsolutionPath(path)];
+    if (fd == 0)
+    {
+        cerr << "文件未打开!" << endl;
+        return;
+    }
+    else
+    {
+        this->fclose(&(this->openFileTable[fd - 1]));
+        this->openFileMap.erase(this->GetAbsolutionPath(path));
+        cout << "成功关闭文件!" << endl;
+    }
 }
 
 /**************************************************************
@@ -236,6 +257,26 @@ void FileSystem::closeFile(string path)
 ***************************************************************/
 void FileSystem::createFile(string path)
 {
+    if (path.find_first_of("/") != -1)
+    {
+        cerr << "文件名不能包含'/'!" << endl;
+        return;
+    }
+    if (path == "." || path == "..")
+    {
+        cerr << "文件名不规范!" << endl;
+        return;
+    }
+
+    int res = this->fcreate(path);
+    if (res == 0)
+    {
+        cout << "文件创建成功!" << endl;
+        return;
+    }
+    
+    cerr << "文件创建失败!" << endl;
+    return;
 
 }
 
@@ -246,27 +287,110 @@ void FileSystem::createFile(string path)
 ***************************************************************/
 void FileSystem::removeFile(string path)
 {
+    int fd = this->openFileMap[this->GetAbsolutionPath(path)];
+    if (fd != 0)
+    {
+        cout << "文件已打开!将自动帮您关闭文件" << endl;
+        this->closeFile(path);
+    }
+    int res = this->fdelete(this->curDir + path);
+    if (res == 0)
+    {
+        cout << "文件删除成功!" << endl;
+        return;
+    }
+
+    cerr << "文件删除失败!" << endl;
+    return;
 
 }
 
 /**************************************************************
 * writeFile 写文件
-* 参数：path 文件路径
+* 参数：path 文件路径 mode写模式 0-文件头 1-文件指针位置 2-文件尾
+* 默认mode为0
 * 返回值：
 ***************************************************************/
 void FileSystem::writeFile(string path, int mode)
 {
+    int fd = this->openFileMap[this->GetAbsolutionPath(path)];
+    if (fd == 0)
+    {
+        cout << "文件未打开!请先使用open指令打开文件" << endl;
+        return;
+    }
 
+    File* fp = &(this->openFileTable[fd - 1]);
+
+    if (this->fseek(fp, 0, mode) == -1)
+    {
+        cout << "文件指针移动失败!" << endl;
+        return;
+    }
+
+    cout << "开始输入字符(按ESC键退出):" << endl;
+    string input;
+    int i = 0;
+    while (true)
+    {
+        if (_kbhit()) // 有按键按下
+        {                       
+            char ch = _getch(); // 获取单个字符输入
+
+            if (ch == 27) // ESC 键
+            {          
+                break;
+            }
+
+            if (ch == '\r')
+            {                  // 检查是否输入回车符
+                input += '\n'; // 将回车符转换为换行符并添加到输入字符串中
+                cout << endl;  // 输出换行符
+            }
+            else
+            {
+                input += ch; // 将字符添加到输入字符串中
+                cout << ch;  // 显示当前输入的字符
+            }
+            i++;
+        }
+    }
+    cout << endl
+        << "本次输入字符个数：" << i << endl;
+
+    this->fwrite(input.c_str(), input.size(), fp);
 }
 
 /**************************************************************
-* printFile 打印文件内容
+* printFile 打印文件内容 对应cat指令
 * 参数：path 文件路径
 * 返回值：
 ***************************************************************/
 void FileSystem::printFile(string path)
 {
+    int fd = this->openFileMap[this->GetAbsolutionPath(path)];
+    if (fd == 0)
+    {
+        cout << "文件未打开!请先使用open指令打开文件" << endl;
+        return;
+    }
 
+    File* fp = &(this->openFileTable[fd - 1]);
+    char* buffer = NULL;
+    int count = fp->f_inode->i_size;
+    int oldoffset = fp->f_offset; // 记录旧的文件指针位置
+    fp->f_offset = 0;
+    this->fread(fp, buffer, count);
+    fp->f_offset = oldoffset;
+    if (buffer == NULL)
+    {
+        cout << "文件为空!" << endl;
+        return;
+    }
+    cout << "文件内容为:" << endl;
+    cout << "\033[31m" << buffer << "\033[0m"; // 设置用红色字打印出来
+    cout << endl
+        << "文件结束!" << endl;
 }
 
 /**************************************************************

@@ -245,14 +245,14 @@ void FileSystem::run()
                     this->mkdir_terminal(input[1]);
                     needEndl = false;
                 }
-                else if (input[0] == "dir")
+                else if (input[0] == "ll")
                 {
                     if (input.size() < 1 || input.size() > 1)
                     {
                         cout << "ÊäÈë·Ç·¨!" << endl;
                         continue;
                     }
-                    this->dir();
+                    this->ll();
                     needEndl = true;
                 }
 
@@ -307,7 +307,7 @@ void FileSystem::run()
                     int mode = input.size() == 3 ? atoi(input[2].c_str()) : 0;
                     this->writeFile(input[1], mode);
                 }
-                else if (input[0] == "print")
+                else if (input[0] == "cat")
                 {
                     if (input.size() < 2 || input.size() > 2)
                     {

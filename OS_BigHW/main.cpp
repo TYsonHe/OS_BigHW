@@ -7,6 +7,7 @@ int main()
 {
 	cout << "欢迎来到TysonFiles系统!" << endl;
 	cout << "初始root用户名是root，密码也是root" << endl;
+	// cerr << "错误测试" << endl;
 	cout<< endl;
 
 	fstream fd;

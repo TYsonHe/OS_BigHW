@@ -487,14 +487,6 @@ int FileSystem::mkdir(string path)
 		return -1;
 	}
 
-	// 如果找到，判断是否有权限写文件
-	/*if (this->Access(fatherInode, FileMode::WRITE) == 0)
-	{
-		cout << "没有权限写文件!" << endl;
-		throw(EACCES);
-		return -1;
-	}*/
-
 	bool isFull = true;
 	// 当有权限写文件时，判断是否有重名文件而且查看是否有空闲的子目录可以写
 	// 计算要读的物理盘块号
@@ -623,14 +615,6 @@ int FileSystem::fcreate(string path)
 		return -1;
 	}
 
-	// 如果找到，判断是否有权限写文件
-	/*if (this->Access(fatherInode, FileMode::WRITE) == 0)
-	{
-		cout << "没有权限写文件!" << endl;
-		throw(EACCES);
-		return -1;
-	}*/
-
 	bool isFull = true;
 	int iinDir = 0;
 	// 当有权限写文件时，判断是否有重名文件而且查看是否有空闲的子目录可以写
@@ -699,6 +683,118 @@ int FileSystem::fcreate(string path)
 	if (fatherInode != this->rootDirInode && fatherInode != this->curDirInode)
 		this->IPut(fatherInode);
 	this->IPut(newinode);
+
+	return 0;
+}
+
+/**************************************************************
+* fdelete 删除文件
+* 参数：path 文件路径
+* 返回值：int 删除成功为0，否则为-1
+***************************************************************/
+int FileSystem::fdelete(string path)
+{
+	vector<string> paths = stringSplit(path, '/');
+	if (paths.size() == 0)
+	{
+		cout << "路径无效!" << endl;
+		throw(EINVAL);
+		return -1;
+	}
+	string name = paths[paths.size() - 1];
+	if (name.size() > NUM_FILE_NAME)
+	{
+		cout << "文件名过长!" << endl;
+		throw(ENAMETOOLONG);
+		return -1;
+	}
+	else if (name.size() == 0)
+	{
+		cout << "文件名不能为空!" << endl;
+		throw(EINVAL);
+		return -1;
+	}
+
+	Inode* fatherInode;
+
+	// 从路径中删除文件名
+	path.erase(path.size() - name.size(), name.size());
+	// 找到想要创建的文件的父文件夹相应的Inode
+	fatherInode = this->NameI(path);
+
+	// 没有找到相应的Inode
+	if (fatherInode == NULL)
+	{
+		cout << "没有找到" << path << endl;
+		throw(ENOENT);
+		return -1;
+	}
+	// 如果找到，判断创建的文件的父文件夹是不是文件夹类型
+	if (!(fatherInode->i_mode & Inode::INodeMode::IDIR))
+	{
+		cout << "不是一个正确的目录项!" << endl;
+		throw(ENOTDIR);
+		return -1;
+	}
+
+	// 普通情况，删除子文件
+	// 当有权限写文件时，判断是否有重名文件而且查看是否有空闲的子目录可以写
+	// 计算要读的物理盘块号
+	// 由于目录文件只占一个盘块，所以只有一项不为空
+	int blkno = fatherInode->Bmap(0);
+	// 读取磁盘的数据
+	Buf* fatherBuf = this->bufManager->Bread(blkno);
+	// 将数据转为目录结构
+	Directory* fatherDir = Char_to_Directory(fatherBuf->b_addr);
+	bool isFind = false;
+	int iinDir = 0;
+	for (int i = 0; i < NUM_SUB_DIR; i++)
+	{
+		// 如果找到对应文件
+		if (!isFind && name == fatherDir->d_filename[i])
+		{
+			isFind = true;
+			iinDir = i;
+		}
+	}
+
+	if (!iinDir)
+	{
+		cout << "未找到所要删除的文件!" << endl;
+		return -1;
+	}
+
+	// 获取所要删除的文件的Inode
+	Inode* pDeleteInode = this->IGet(fatherDir->d_inodenumber[iinDir]);
+	if (NULL == pDeleteInode)
+	{
+		cout << "未找到所要删除的文件!" << endl;
+		return -1;
+	}
+	if (pDeleteInode->i_mode & Inode::INodeMode::IDIR) // 如果是文件夹类型
+	{
+		cout << "请输入正确的文件名!" << endl;
+		return -1;
+	}
+
+	// 删除父目录下的文件项
+	fatherDir->rmi(iinDir);
+	fatherInode->i_size -= sizeof(Directory) / NUM_SUB_DIR; // 父亲的大小减小一个目录项
+	fatherInode->i_atime = unsigned int(time(NULL));
+	fatherInode->i_mtime = unsigned int(time(NULL));
+	memcpy(fatherBuf->b_addr, Directory_to_Char(fatherDir), sizeof(Directory));
+
+	// 统一写回：父目录inode 父目录数据块
+	fatherInode->WriteI();
+	this->bufManager->Bwrite(fatherBuf);
+
+	// 释放所有Inode
+	if (fatherInode != this->rootDirInode && fatherInode != this->curDirInode)
+		this->IPut(fatherInode);
+
+	// 释放Inode
+	pDeleteInode->i_nlink--;
+	this->IPut(pDeleteInode); // 当i_nlink为0时，会释放Inode
 
 	return 0;
 }
@@ -852,4 +948,85 @@ void FileSystem::fclose(File* fp)
 	// 释放内存结点
 	this->IPut(fp->f_inode);
 	fp->Clean();
+}
+
+/**************************************************************
+* fread 读文件到字符串中
+* 参数：fp 文件指针 buffer 读取内容索要存放的字符串 count  读取的字节数
+* 返回值：
+***************************************************************/
+void FileSystem::fread(File* fp, char*& buffer, int count)
+{
+	if (fp == NULL)
+	{
+		cout << "文件指针为空!" << endl;
+		throw(EBADF);
+		return;
+	}
+
+	// 获取文件的Inode
+	Inode* pInode = fp->f_inode;
+	if (count > 0)
+		buffer = new char[count + 1];
+	else
+	{
+		buffer = NULL;
+		return;
+	}
+	int pos = 0; // 已经读取的字节数
+	while (pos < count)
+	{
+		// 计算本读取位置在文件中的位置
+		int startpos = fp->f_offset;
+		if (startpos >= pInode->i_size) // 读取位置超出文件大小
+			break;
+		// 计算本次读取物理盘块号，由于上一个判断,不会有读取位置超出文件大小的问题
+		int blkno = pInode->Bmap(startpos / SIZE_BLOCK);
+		// 计算本次读取的大小
+		int size = SIZE_BLOCK - startpos % SIZE_BLOCK;
+		if (size > count - pos)
+			size = count - pos; // 修正读取的大小
+
+		Buf* pBuf = this->bufManager->Bread(blkno);
+		// TODO:如有大文件这里需要改
+		memcpy(buffer + pos, pBuf->b_addr + startpos % SIZE_BLOCK, size);
+		pos += size;
+		fp->f_offset += size;
+	}
+	buffer[count] = '\0'; // 设置结束标记
+
+	pInode->i_atime = unsigned int(time(NULL));
+}
+
+/**************************************************************
+* fseek 移动文件指针
+* 参数：fp 文件指针 offset 偏移量 mode 移动方式,SEEK_SET,SEEK_CUR,SEEK_END
+* 返回值：int 移动成功为0，否则为-1
+***************************************************************/
+int FileSystem::fseek(File* fp, int offset, int mode)
+{
+	if (SEEK_SET == mode) // 从文件头开始
+	{
+		if (offset >= 0 && offset <= fp->f_inode->i_size)
+			fp->f_offset = offset;
+		else
+			return -1;
+	}
+	else if (SEEK_CUR == mode) // 从当前位置开始
+	{
+		if (offset >= 0 && (fp->f_offset + offset) >= 0)
+			fp->f_offset += offset;
+		else
+			return -1;
+	}
+	else if (SEEK_END == mode) // 从文件尾开始
+	{
+		if (offset >= 0 && (fp->f_inode->i_size - 1 + offset) >= 0)
+			fp->f_offset = fp->f_inode->i_size - 1 + offset;
+		else
+			return -1;
+	}
+	else
+		return -1;
+	return 0;
 }
