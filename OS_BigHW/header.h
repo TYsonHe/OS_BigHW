@@ -269,7 +269,7 @@ public:
 	string GetModeString(int id, int gid);
 
 	// 通过字符串获取mode
-	unsigned short String2Mode(string mode);
+	unsigned short String_to_Mode(string mode);
 };
 
 /*
@@ -353,8 +353,7 @@ private:
 	Inode* IGet(int inumber);
 
 	// 查找pInode是否有给定mode的权限
-	// 先不用权限
-	// int Access(Inode* pInode, unsigned int mode);
+	int Access(Inode* pInode, unsigned int mode);
 
 	// 分配一个空闲的外存Inode
 	Inode* IAlloc();

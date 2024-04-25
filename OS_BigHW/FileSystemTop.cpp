@@ -315,6 +315,7 @@ void FileSystem::run()
                         continue;
                     }
                     this->printFile(input[1]);
+                    needEndl = false;
                 }
                 else if (input[0] == "cpffs")
                 {
@@ -324,6 +325,7 @@ void FileSystem::run()
                         continue;
                     }
                     this->copy_from_fs(input[1], input[2], stoi(input[3]));
+                    needEndl = false;
                 }
                 else if (input[0] == "cpfwin")
                 {
@@ -333,6 +335,7 @@ void FileSystem::run()
                         continue;
                     }
                     this->copy_from_win(input[1]);
+                    needEndl = false;
                 }
                 else if (input[0] == "chmod")
                 {
@@ -351,6 +354,7 @@ void FileSystem::run()
                         continue;
                     }
                     this->print0penFileList();
+                    needEndl = false;
                 }
                 else if (input[0] == "fseek")
                 {
@@ -392,8 +396,7 @@ void FileSystem::run()
         catch (int& e)
         {
             cout << "error code：" << e << endl;
-            cout << "与linux错误码保持一致" << endl
-                << endl;
+            cout << "与linux错误码保持一致" << endl << endl;
         }
     }
 }

@@ -487,6 +487,13 @@ int FileSystem::mkdir(string path)
 		return -1;
 	}
 
+	if (this->Access(fatherInode, FileMode::WRITE) == 0) // 判断是否有权限写文件
+	{
+		cout << "没有权限写文件!" << endl;
+		throw(EACCES);
+		return -1;
+	}
+
 	bool isFull = true;
 	// 当有权限写文件时，判断是否有重名文件而且查看是否有空闲的子目录可以写
 	// 计算要读的物理盘块号
@@ -615,6 +622,13 @@ int FileSystem::fcreate(string path)
 		return -1;
 	}
 
+	if (this->Access(fatherInode, FileMode::WRITE) == 0) // 判断是否有权限写文件
+	{
+		cout << "没有权限写文件!" << endl;
+		throw(EACCES);
+		return -1;
+	}
+
 	bool isFull = true;
 	int iinDir = 0;
 	// 当有权限写文件时，判断是否有重名文件而且查看是否有空闲的子目录可以写
@@ -737,6 +751,13 @@ int FileSystem::fdelete(string path)
 		return -1;
 	}
 
+	if (this->Access(fatherInode, FileMode::WRITE) == 0)
+	{
+		cout << "没有权限删除(写)文件!" << endl;
+		throw(EACCES);
+		return -1;
+	}
+
 	// 普通情况，删除子文件
 	// 当有权限写文件时，判断是否有重名文件而且查看是否有空闲的子目录可以写
 	// 计算要读的物理盘块号
@@ -777,6 +798,13 @@ int FileSystem::fdelete(string path)
 		return -1;
 	}
 
+	if (this->Access(pDeleteInode, FileMode::WRITE) == 0)
+	{
+		cout << "没有权限删除(写)文件!" << endl;
+		throw(EACCES);
+		return -1;
+	}
+
 	// 删除父目录下的文件项
 	fatherDir->rmi(iinDir);
 	fatherInode->i_size -= sizeof(Directory) / NUM_SUB_DIR; // 父亲的大小减小一个目录项
@@ -814,12 +842,12 @@ void FileSystem::fwrite(const char* buffer, int count, File* fp)
 	}
 
 	// 如果找到，判断是否有权限打开文件
-	/*if (this->Access(fp->f_inode, FileMode::WRITE) == 0)
+	if (this->Access(fp->f_inode, FileMode::WRITE) == 0)
 	{
 		cout << "没有权限写文件!" << endl;
 		throw(EACCES);
 		return;
-	}*/
+	}
 
 	if (count + fp->f_offset > SIZE_BLOCK * NUM_BLOCK_ILARG)
 	{
@@ -909,13 +937,13 @@ int FileSystem::fopen(string path)
 		return -1;
 	}
 
-	// 如果找到，判断是否有权限打开文件,其实是读
-	/*if (this->Access(pinode, FileMode::READ) == 0)
+	// 判断是否有读权限打开文件
+	if (this->Access(pinode, FileMode::READ) == 0)
 	{
-		cout << "没有权限打开文件!" << endl;
+		cout << "没有权限读文件!" << endl;
 		throw(EACCES);
 		return -1;
-	}*/
+	}
 
 	// 分配打开文件控制块File结构
 	int fileloc = 0;
@@ -961,6 +989,13 @@ void FileSystem::fread(File* fp, char*& buffer, int count)
 	{
 		cout << "文件指针为空!" << endl;
 		throw(EBADF);
+		return;
+	}
+
+	if (this->Access(fp->f_inode, FileMode::READ) == 0)
+	{
+		cout << "没有权限读文件!" << endl;
+		throw(EACCES);
 		return;
 	}
 
@@ -1028,5 +1063,27 @@ int FileSystem::fseek(File* fp, int offset, int mode)
 	}
 	else
 		return -1;
+	return 0;
+}
+
+/**************************************************************
+* Access 查找pInode是否有给定mode的权限
+* 参数：pInode 要查找的Inode指针 mode   要查找的权限
+* 返回值：如果有权限，返回1，否则返回0
+***************************************************************/
+int FileSystem::Access(Inode* pInode, unsigned int mode)
+{
+	// 如果是文件所有者 或者是 ROOT
+	if (this->curId == pInode->i_uid || this->curId == ROOT_ID)
+	{
+		if (mode == FileMode::WRITE) // 写权力前提是有读权力
+			return (pInode->i_mode & Inode::INodeMode::OWNER_R) && (pInode->i_mode & Inode::INodeMode::OWNER_W);
+		else if (mode == FileMode::READ)
+			return pInode->i_mode & Inode::INodeMode::OWNER_R;
+		else
+			return 0;
+	}
+
+	// 组和其他人暂时不考虑，只有一个用户
 	return 0;
 }

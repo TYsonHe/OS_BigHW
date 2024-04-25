@@ -25,10 +25,10 @@ void FileSystem::help()
     printf("chmod <file-name> <mode>                修改当前目录下名称为file-name的文件的权限为mode\n");
     printf("                                        mode格式:rwrwrw,r代表可读,w代表可写,-代表没有这个权限\n");
     printf("                                        三组分别代表文件创建者权限、同组用户权限和其他用户权限\n");
-    printf("                                        eg. rwr-r-代表文件创建者权限可读写、同组用户权限可读和其他用户权限可读\n");
     printf("close <file-name>                       关闭当前目录里名称为file-name的文件\n");
     printf("cat <file-name>                         读取并打印当前目录里名称为file-name的文件内容(需要先打开文件)\n");
     printf("fseek <file-name> <offset>              移动文件指针offset个偏移量，可以为负\n");
+    printf("flseek <file-name>                      查看文件的指针位置\n");
     printf("write <file-name> [mode]                在当前目录里名称为file-name的文件里开始写入(需要先打开文件)\n");
     printf("                                        mode可选,有三种模式:0表示从文件头位置开始写,\n");
     printf("                                        1表示从文件指针位置开始写,2表示从文件尾开始写,默认模式为0\n");
@@ -322,6 +322,13 @@ void FileSystem::writeFile(string path, int mode)
 
     File* fp = &(this->openFileTable[fd - 1]);
 
+    // 检查权限
+    if (this->Access(fp->f_inode, FileMode::WRITE) == 0)
+    {
+        cerr << "文件没有写权限!" << endl;
+        return;
+    }
+
     if (this->fseek(fp, 0, mode) == -1)
     {
         cout << "文件指针移动失败!" << endl;
@@ -358,7 +365,7 @@ void FileSystem::writeFile(string path, int mode)
     cout << endl
         << "本次输入字符个数：" << i << endl;
 
-    this->fwrite(input.c_str(), input.size(), fp);
+    this->fwrite(input.c_str(), (int)input.size(), fp);
 }
 
 /**************************************************************
@@ -389,8 +396,7 @@ void FileSystem::printFile(string path)
     }
     cout << "文件内容为:" << endl;
     cout << "\033[31m" << buffer << "\033[0m"; // 设置用红色字打印出来
-    cout << endl
-        << "文件结束!" << endl;
+    cout << endl << "文件结束!" << endl;
 }
 
 /**************************************************************
@@ -448,13 +454,40 @@ void FileSystem::flseek(string path)
 }
 
 /**************************************************************
-* copy_from_win 将Windows系统下的文件复制进本FileSystem
+* copy_from_win 将Windows系统下的文件复制进本FileSystem(当前目录下)
 * 参数：path Windows下文件路径
 * 返回值：
 ***************************************************************/
 void FileSystem::copy_from_win(string path)
 {
+    fstream fd_win;
+    fd_win.open(path, ios::in | ios::binary);
+    if (!fd_win.is_open())
+    {
+        cerr << "无法在windows下打开文件" << path << endl;
+        return;
+    }
+    fd_win.seekg(0, fd_win.end);
+    int filesize = static_cast<int>(fd_win.tellg()); // 获取文件大小
+    fd_win.seekg(0, fd_win.beg);
+    char* buffer = new char[filesize + 1];
+    fd_win.read(buffer, filesize); // 读取文件内容
+    buffer[filesize] = '\0';
+    fd_win.close();
 
+    vector<string> paths = stringSplit(path, '\\'); // win系统上的路径分割符为'\'
+    string filename = paths[paths.size() - 1];      // 获取文件名
+
+    // 创建文件
+    int res = this->fcreate(filename);
+    if (res == 0)
+    {
+        int fileloc = this->fopen(filename);
+        File* fileptr = &(this->openFileTable[fileloc]);
+        this->fwrite(buffer, filesize, fileptr);
+        this->fclose(fileptr);
+        cout << "成功导入windows文件" << filename << ",写入大小为" << filesize << endl;
+    }
 }
 
 /**************************************************************
@@ -464,7 +497,38 @@ void FileSystem::copy_from_win(string path)
 ***************************************************************/
 void FileSystem::copy_from_fs(string filename, string winpath, int count)
 {
+    fstream fd;
+    fd.open(winpath, ios::out);
+    if (!fd.is_open())
+    {
+        cerr << "无法打开windows文件" << winpath << endl;
+        return;
+    }
 
+    // 打开fs中的文件
+    int fileloc = this->openFileMap[this->GetAbsolutionPath(filename)];
+    if (fileloc == 0)
+    {
+        cerr << "本系统文件未打开!请先使用open指令打开文件" << endl;
+        return;
+    }
+
+    File* fp = &(this->openFileTable[fileloc - 1]);
+
+    char* buffer = NULL;
+    // 修正读取大小
+    int actualcount = ((count + (int)fp->f_offset) < fp->f_inode->i_size) ? count : (fp->f_inode->i_size - fp->f_offset);
+    this->fread(fp, buffer, actualcount);
+
+    // 查看本系统文件
+    if (buffer == NULL)
+    {
+        cerr << "本系统文件为空!" << endl;
+        return;
+    }
+    fd.write(buffer, actualcount); // 写入文件内容
+    fd.close(); // 关闭windows文件
+    cout << "成功导出文件" << filename << ",写入大小为" << actualcount << endl;
 }
 
 /**************************************************************
@@ -474,7 +538,16 @@ void FileSystem::copy_from_fs(string filename, string winpath, int count)
 ***************************************************************/
 void FileSystem::print0penFileList()
 {
-
+    cout << "当前打开文件列表:" << endl;
+    if (this->openFileMap.empty())
+    {
+        cout << "无打开文件!" << endl;
+        return;
+    }
+    cout << std::left << setw(20) << "文件名路径" << setw(10) << "文件描述符" << setw(10) << "文件指针" << endl;
+    for (const auto& pair : this->openFileMap)
+        cout << std::left << setw(20) << pair.first << setw(10) << pair.second << setw(10) << this->openFileTable[pair.second - 1].f_offset << endl;
+    cout << endl;
 }
 
 /**************************************************************
@@ -484,7 +557,31 @@ void FileSystem::print0penFileList()
 ***************************************************************/
 void FileSystem::chmod(string path, string mode)
 {
+    if (mode.size() != 6)
+    {
+        cerr << "输入的权限格式不正确!" << endl;
+        return;
+    }
 
+    Inode* p = this->NameI(path);
+    if (p == NULL)
+    {
+        cerr << "文件不存在!" << endl;
+        return;
+    }
+
+    unsigned short modeNum = p->String_to_Mode(mode);
+    if (modeNum == -1)
+    {
+        cerr << "输入的权限格式不正确!" << endl;
+        return;
+    }
+
+    int res = p->AssignMode(modeNum);
+    if (res == 0)
+        cout << "修改成功!" << endl;
+    else
+        cerr << "不能改变文件属性!" << endl;
 }
 
 /**************************************************************

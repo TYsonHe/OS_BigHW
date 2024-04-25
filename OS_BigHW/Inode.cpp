@@ -176,7 +176,6 @@ Directory* Inode::GetDir()
 * 参数： id 用户id gid 用户组id
 * 返回值：permissionString 共6位，没有x权限
 ***************************************************************/
-// 根据id和gid获取文件权限字符串
 string Inode::GetModeString(int id, int gid)
 {
     string permissionString;
@@ -198,6 +197,63 @@ string Inode::GetModeString(int id, int gid)
         permissionString += (this->i_mode & OTHER_W) ? "w" : "-";
     }
     return permissionString;
+}
+
+/**************************************************************
+* String_to_Mode 将文件权限字符串转换为mode
+* 参数： mode 文件权限字符串
+* 返回值：unsigned short 返回mode 错误返回-1
+***************************************************************/
+unsigned short Inode::String_to_Mode(string mode)
+{
+    if (mode.length() != 6)
+        return -1;
+    unsigned short modeNum = 0;
+    if (mode[0] == 'r')
+        modeNum |= OWNER_R;
+    else if (mode[0] != '-')
+        return -1;
+
+    if (mode[1] == 'w')
+        modeNum |= OWNER_W;
+    else if (mode[1] != '-')
+        return -1;
+
+    if (mode[2] == 'r')
+        modeNum |= GROUP_R;
+    else if (mode[2] != '-')
+        return -1;
+
+    if (mode[3] == 'w')
+        modeNum |= GROUP_W;
+    else if (mode[3] != '-')
+        return -1;
+
+    if (mode[4] == 'r')
+        modeNum |= OTHER_R;
+    else if (mode[4] != '-')
+        return -1;
+
+    if (mode[5] == 'w')
+        modeNum |= OTHER_W;
+    else if (mode[5] != '-')
+        return -1;
+
+    return modeNum;
+}
+
+/**************************************************************
+* AssignMode 根据规则给内存Inode赋予文件权限
+* 参数： 
+* 返回值：int 正确返回0，错误返回-1
+***************************************************************/
+int Inode::AssignMode(unsigned short mode)
+{
+    if (mode & Inode::IFILE || mode & Inode::IDIR || mode & Inode::ILARG)
+        return -1;
+    this->i_mode &= ~(OWNER_R | OWNER_W | GROUP_R | GROUP_W | OTHER_R | OTHER_W);
+    this->i_mode |= mode & (OWNER_R | OWNER_W | GROUP_R | GROUP_W | OTHER_R | OTHER_W);
+    return 0;
 }
 
 /**************************************************************
