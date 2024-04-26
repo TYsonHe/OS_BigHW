@@ -8,6 +8,11 @@
 #define ROOT_GID 0
 #define ROOT_DIR_INUMBER 1
 
+// 设置颜色输出
+#define RESET   "\033[0m"
+#define RED     "\033[31m"      /* Red */
+#define BLUE    "\033[34m"      /* Blue */
+
 #include <iostream>
 #include <conio.h>
 #include <fstream>
@@ -318,7 +323,7 @@ public:
 	Buf* Bread(int blkno);
 
 	// 暂做备用
-	void Bread(char* buf, int blkno, int offset, int size);
+	// void Bread(char* buf, int blkno, int offset, int size);
 
 	// 清理Buf
 	void CleanBuf(Buf* bp);
@@ -395,7 +400,7 @@ public:
 	Buf* Alloc();
 
 	// 获取当前用户的ID
-	short getCurUserID();
+	// short getCurUserID();
 
 	// 创建文件
 	int fcreate(string path);
@@ -416,7 +421,7 @@ public:
 	// 删除文件
 	int fdelete(string path);
 
-	Directory getDir();
+	// Directory getDir();
 
 	void fread(File* fp, char*& buffer, int count);
 	void init();

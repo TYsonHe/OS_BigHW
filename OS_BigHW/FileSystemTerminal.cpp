@@ -11,7 +11,7 @@ void FileSystem::help()
     printf("下列命令中带'<>'的项是必须的，带'[]'的项是可选择的\n");
     printf("请注意：本系统中路径用'/'分隔，windows系统路径用'\\'分割\n");
     printf("        VS中默认编码是GBK,想要正确输出文件内容，请保持编码一致\n");
-    cout <<"        \033[31m请勿随便关掉控制台,想要正确退出系统一定要输入exit\033[0m\n"; // 设置用红色字打印出来
+    cout <<RED<<"        请勿随便关掉控制台,想要正确退出系统一定要输入exit\n"<<RESET; // 设置用红色字打印出来
     printf("--------------目录相关---------------\n");
     printf("ls                                      查看当前目录下的子目录\n");
     printf("ll                                      查看当前目录下的详细信息\n");
@@ -149,12 +149,24 @@ void FileSystem::cd(string subname)
 }
 
 /**************************************************************
-* mkdir_terminal 新建目录
+* mkdir_terminal 新建目录(在当前目录下)
 * 参数：subname 子目录名称
 * 返回值：
 ***************************************************************/
 void FileSystem::mkdir_terminal(string subname)
 {
+    if (subname.find_first_of("/") != -1)
+    {
+        cerr << "目录名不能包含'/'!" << endl;
+        return;
+    }
+    int res = this->mkdir(this->curDir + subname);
+    if (res == 0)
+    {
+        cout << "目录创建成功！" << endl;
+    }
+    else
+        cerr << "目录创建失败！" << endl;
 
 }
 
@@ -166,7 +178,58 @@ void FileSystem::mkdir_terminal(string subname)
 ***************************************************************/
 void FileSystem::rmdir(string subname)
 {
+    if (subname == "." || subname == "..")
+    {
+        cout << "不能删除当前目录或父目录!" << endl;
+        return;
+    }
 
+    // 普通情况，删除子文件夹
+    Directory* dir = this->curDirInode->GetDir();
+    int i;
+    for (i = 0; i < NUM_SUB_DIR; i++)
+    {
+        if (dir->d_inodenumber[i] == 0)
+            continue;
+        if (strcmp(dir->d_filename[i], subname.c_str()) == 0)
+            break;
+    }
+    if (i == NUM_SUB_DIR)
+    {
+        cout << "所要删除的目录不存在!" << endl;
+        return;
+    }
+
+    // 获取所要删除的文件夹的Inode
+    Inode* pDeleteInode = this->IGet(dir->d_inodenumber[i]);
+    if (NULL == pDeleteInode) // 这样的情况应该不存在，但是写一下
+    {
+        cout << "所要删除的目录不存在!" << endl;
+        return;
+    }
+    if (pDeleteInode->i_mode & Inode::INodeMode::IFILE) // 如果是文件类型
+    {
+        cout << "请输入正确的子目录名!" << endl;
+        return;
+    }
+    Directory* deletedir = pDeleteInode->GetDir();
+    for (int i = 2; i < NUM_SUB_DIR; i++) // 从第3个目录项开始，所有目录项的前两个都是自己和父亲
+    {
+        if (deletedir->d_inodenumber[i] != 0)
+        {
+            cout << "目录非空，不能删除!" << endl;
+            return;
+        }
+    }
+
+    // 删除子目录inode,其实只是unlink
+    pDeleteInode->i_nlink--;
+    this->IPut(pDeleteInode); // 当i_nlink为0时，会释放Inode
+
+    // 删除父目录下的子目录项
+    dir->rmi(i);
+
+    cout << "目录删除成功！" << endl;
 }
 
 /**************************************************************
@@ -184,7 +247,7 @@ void FileSystem::ll()
         << std::left << setw(20) << "修改时间"
         << std::left << setw(10) << "文件类型"
         << std::left << setw(15) << "文件大小"
-        << std::left << "文件名" << endl;
+        << std::left << "文件路径(名)" << endl;
     for (i = 0; i < NUM_SUB_DIR; i++)
     {
         if (dir->d_inodenumber[i] == 0)
@@ -195,14 +258,14 @@ void FileSystem::ll()
             cout << std::left << setw(12) << FileMode_to_String(p->i_mode)
             << std::left << setw(12) << p->GetModeString(this->curId, this->userTable->GetGId(this->curId))
             << std::left << setw(20) << time
-            << std::left << setw(10) << " "
+            << std::left << setw(12) << " "
             << std::left << setw(15) << p->i_size
             << std::left << dir->d_filename[i] << endl;
         else if (p->i_mode & Inode::INodeMode::IDIR)
             cout << std::left << setw(12) << FileMode_to_String(p->i_mode)
             << std::left << setw(12) << p->GetModeString(this->curId, this->userTable->GetGId(this->curId))
             << std::left << setw(20) << time
-            << std::left << setw(10) << "<DIR>"
+            << std::left << setw(12) << "<DIR>"
             << std::left << setw(15) << " "
             << std::left << dir->d_filename[i] << endl;
         this->IPut(p);
@@ -251,7 +314,7 @@ void FileSystem::closeFile(string path)
 }
 
 /**************************************************************
-* createFile 创建文件
+* createFile 创建文件 对应touch指令
 * 参数：path 文件路径
 * 返回值：
 ***************************************************************/
@@ -264,7 +327,7 @@ void FileSystem::createFile(string path)
     }
     if (path == "." || path == "..")
     {
-        cerr << "文件名不规范!" << endl;
+        cerr << "文件名不能为隐藏的.和.." << endl;
         return;
     }
 
@@ -274,7 +337,7 @@ void FileSystem::createFile(string path)
         cout << "文件创建成功!" << endl;
         return;
     }
-    
+    // 其余情况
     cerr << "文件创建失败!" << endl;
     return;
 
@@ -395,7 +458,7 @@ void FileSystem::printFile(string path)
         return;
     }
     cout << "文件内容为:" << endl;
-    cout << "\033[31m" << buffer << "\033[0m"; // 设置用红色字打印出来
+    cout << BLUE << buffer << RESET; // 设置用蓝色字打印出来
     cout << endl << "文件结束!" << endl;
 }
 

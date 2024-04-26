@@ -389,14 +389,14 @@ void FileSystem::run()
                 }
                 else
                 {
-                    cout << "指令不存在，请通过help查阅支持功能";
+                    cout << "指令不存在，请通过help查阅指令和帮助信息";
                 }
             }
         }
         catch (int& e)
         {
-            cout << "error code：" << e << endl;
-            cout << "与linux错误码保持一致" << endl << endl;
+            cerr << "error code：" << e << endl;
+            cout << "可以查看Linux错误码" << endl;
         }
     }
 }
