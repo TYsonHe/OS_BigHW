@@ -87,8 +87,22 @@ char* UserTable_to_Char(UserTable* usertable)
 {
     try
     {
-        char* ch = reinterpret_cast<char*>(usertable);
-        return ch;
+        /*char* ch = reinterpret_cast<char*>(usertable);
+        return ch;*/
+        if (usertable == nullptr) {
+            return nullptr;
+        }
+
+        // 获取对象的大小
+        size_t size = sizeof(UserTable);
+
+        // 分配内存
+        char* result = new char[size];
+
+        // 将对象的内存内容复制到字节数组
+        std::memcpy(result, usertable, size);
+
+        return result;
     }
     catch (exception& e)
     {

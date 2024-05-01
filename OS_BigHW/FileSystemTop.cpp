@@ -88,7 +88,8 @@ void FileSystem::fformat() {
 * 参数：
 * 返回值：
 ***************************************************************/
-void FileSystem::exit() {
+void FileSystem::exit() 
+{
 	this->curId = ROOT_ID; // 保证权限
 	// 将superblock写回磁盘
 	this->WriteSpb();

@@ -1,5 +1,8 @@
 #include "header.h"
 
+// 工具函数
+// 主要是为了读写的转换
+// 实现各个数据结构的转换为Char类型好存储
 Directory* Char_to_Directory(char* ch);
 
 DiskInode* Char_to_DiskInode(char* ch);

@@ -69,7 +69,9 @@ void FileSystem::WriteUserTable()
 {
 	int filoc = fopen("/etc/userTable.txt");
 	File* userTableFile = &this->openFileTable[filoc];
-	this->fwrite(UserTable_to_Char(this->userTable), sizeof(UserTable), userTableFile);
+	char* userTableBytes = UserTable_to_Char(this->userTable); // 这里userTableBytes申请了内存空间
+	this->fwrite(userTableBytes, sizeof(UserTable), userTableFile);
+	delete[] userTableBytes; // 确保在使用后释放内存
 	this->fclose(userTableFile);
 }
 
@@ -315,14 +317,15 @@ Inode* FileSystem::NameI(string path)
 	Inode* pInode;
 	Buf* pbuf;
 	vector<string> paths = stringSplit(path, '/'); // 所以要求文件夹和文件的名中不能出现"/"
-	int ipaths = 0;
+	int path_cnt = 0; // 记录path的长度，来匹配循环深度
 	bool isFind = false;
 
-	// 第一个字符为/表示绝对路径
-	if (path.size() != 0 && path[0] == '/') // 从根目录开始查找
-		pInode = this->rootDirInode;
-	else // 相对路径的查找
-		pInode = this->curDirInode;
+	if (path.size() != 0 && path[0] == '/') 
+		pInode = this->rootDirInode;// 从根目录开始查找
+	else 
+		pInode = this->curDirInode;// 相对路径的查找
+
+	// 获取盘块号
 	int blkno = pInode->Bmap(0);
 	// 读取磁盘的数据
 
@@ -330,9 +333,9 @@ Inode* FileSystem::NameI(string path)
 	{
 		isFind = false;
 		// 包含path为空的情况
-		if (ipaths == paths.size()) // 这种情况说明找到了对应的文件或目录
+		if (path_cnt == paths.size()) // 这种情况说明找到了对应的文件或目录
 			break;
-		else if (ipaths >= paths.size())
+		else if (path_cnt >= paths.size())
 			return NULL;
 
 		// 如果现有的Inode是目录文件才正确,因为在这里面的循环才会找到文件/目录
@@ -352,9 +355,9 @@ Inode* FileSystem::NameI(string path)
 			for (int i = 0; i < NUM_SUB_DIR; i++)
 			{
 				// 如果找到对应子目录
-				if (paths[ipaths] == fatherDir->d_filename[i])
+				if (paths[path_cnt] == fatherDir->d_filename[i])
 				{
-					ipaths++;
+					path_cnt++;
 					isFind = true;
 					pInode = this->IGet(fatherDir->d_inodenumber[i]);
 					break;

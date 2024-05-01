@@ -3,7 +3,8 @@
 
 Buf::Buf()
 {
-    this->b_flags = BufFlag::B_NONE;
+    // b_flags、b_wcount、b_blkno在缓存构造时赋值
+    this->b_flags = BufFlag::B_NONE; // 初始化为NONE
     this->av_back = NULL;
     this->av_forw = NULL;
     this->b_forw = NULL;

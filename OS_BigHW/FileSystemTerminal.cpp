@@ -180,7 +180,7 @@ void FileSystem::rmdir(string subname)
 {
     if (subname == "." || subname == "..")
     {
-        cout << "不能删除当前目录或父目录!" << endl;
+        cerr << "不能删除当前目录或父目录!" << endl;
         return;
     }
 
@@ -196,7 +196,7 @@ void FileSystem::rmdir(string subname)
     }
     if (i == NUM_SUB_DIR)
     {
-        cout << "所要删除的目录不存在!" << endl;
+        cerr << "所要删除的目录不存在!" << endl;
         return;
     }
 
@@ -204,12 +204,12 @@ void FileSystem::rmdir(string subname)
     Inode* pDeleteInode = this->IGet(dir->d_inodenumber[i]);
     if (NULL == pDeleteInode) // 这样的情况应该不存在，但是写一下
     {
-        cout << "所要删除的目录不存在!" << endl;
+        cerr << "所要删除的目录不存在!" << endl;
         return;
     }
     if (pDeleteInode->i_mode & Inode::INodeMode::IFILE) // 如果是文件类型
     {
-        cout << "请输入正确的子目录名!" << endl;
+        cerr << "请输入正确的子目录名!" << endl;
         return;
     }
     Directory* deletedir = pDeleteInode->GetDir();
@@ -217,7 +217,7 @@ void FileSystem::rmdir(string subname)
     {
         if (deletedir->d_inodenumber[i] != 0)
         {
-            cout << "目录非空，不能删除!" << endl;
+            cerr << "目录非空，不能删除!" << endl;
             return;
         }
     }

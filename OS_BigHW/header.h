@@ -90,39 +90,84 @@ static const int NUM_FILE_INDEX = SIZE_BLOCK / sizeof(int);
 static const int NUM_BLOCK_IFILE = 5;
 static const int NUM_BLOCK_ILARG = NUM_FILE_INDEX * (NUM_I_ADDR - NUM_BLOCK_IFILE) + NUM_BLOCK_IFILE;
 
-/*
- * 用户User类的定义
- * 由于有多个用户，但是没有实现多用户多进程文件读写，还是一种“伪并发”
- */
-class UserTable
+/**************************************************************
+* Buf 缓存块Buffer的定义 （也叫缓存控制块）
+* 用途：作为缓存块存储信息
+* 特殊：有对应的Flag记录缓存块使用信息
+*		只有一个设备
+***************************************************************/
+class Buf
 {
 public:
-	short u_id[NUM_USER];						  // 用户id
-	short u_gid[NUM_USER];						  // 用户所在组id
-	char u_name[NUM_USER][NUM_USER_NAME];		  // 用户名
-	char u_password[NUM_USER][NUM_USER_PASSWORD]; // 用户密码
-	UserTable();
-	~UserTable();
+	enum BufFlag
+	{
+		B_NONE = 0x0,	// 初始化（未定义使用时）
+		B_WRITE = 0x1,	// 写操作标记。
+		B_READ = 0x2,	// 读操作标记。
+		B_DONE = 0x4,	// I/O操作结束
+		B_DELWRI = 0x80 // 延迟写标记
+	};
 
-	// 添加root用户
-	void AddRoot();
-	// 添加用户
-	// void AddUser(const short id, const char* name, const char* password, const short givengid);
-	// 删除用户
-	// void DeleteUser(const short id, const char* name);
+public:
+	unsigned int b_blkno;  // 缓存块对应的内存逻辑块号
+	char* b_addr;		   // 指向该缓存块的首地址
+	unsigned int b_flags;  // 缓存控制块标志位,定义见enum BufFlag
+	Buf* b_forw;		   // 当前缓存块的前驱节点,将Buf插入NODEV队列或某一设备队列
+	Buf* b_back;		   // 当前缓存块的后继节点,同上
+	Buf* av_forw;		   // 上一个空闲缓存块的指针,将Buf插入自由队列或某一I/O请求队列
+	Buf* av_back;		   // 下一个空闲缓存块的指针,同上
+	unsigned int b_wcount; // 需传送的字节数
 
-	// void ChangerUserGID(const short id, const char* name, const short gid);
-
-	short GetGId(const short id);
-
-	short FindUser(const char* name, const char* password);
+	Buf();
+	~Buf();
 };
 
-/*
- * 目录Directory类
- * 该结构实现了树形带交叉勾连的目录结构
- * 一个Directory类就一个BLOCK大小
- */
+/**************************************************************
+* BufferManager 缓存池（缓存控制块管理）类定义
+* 用途：管理所有的Buf
+* 特殊：有对应的Flag记录缓存块使用信息
+*		只有一个设备
+***************************************************************/
+class BufferManager
+{
+private:
+	Buf bFreeList;					   // 自由缓存队列（双向链表）
+	Buf devtab;						   // 由于只有一个设备，所以只有一个设备表
+	Buf m_Buf[NUM_BUF];				   // 缓存控制块数组
+	char Buffer[NUM_BUF][SIZE_BUFFER]; // 缓冲区数组
+public:
+	// 构造函数
+	BufferManager();
+	~BufferManager();
+
+	// 根据物理设备块号读取缓存
+	Buf* GetBlk(int blkno);
+
+	// 将缓存块bp写到磁盘上
+	void Bwrite(Buf* bp);
+
+	// 将缓存块延迟写
+	void Bdwrite(Buf* bp);
+
+	// 根据物理设备块号读取缓存
+	Buf* Bread(int blkno);
+
+	// 暂做备用
+	// void Bread(char* buf, int blkno, int offset, int size);
+
+	// 清理Buf
+	void CleanBuf(Buf* bp);
+
+	// 全部保存，写入磁盘
+	void Flush();
+};
+
+/**************************************************************
+* Directory 目录信息类
+* 用途：作为文件系统的目录信息记录
+* 特殊：实现了树状目录结构
+*		一个Directory类就一个BLOCK大小
+***************************************************************/
 class Directory
 {
 public:
@@ -139,17 +184,24 @@ public:
 	void rmi(int iloc);
 };
 
-// 文件系统存储资源管理块(Super Block)的定义。
-class SuperBlock
+/**************************************************************
+* SuperBlock 超级块
+* 用途：作为文件系统存储资源管理块
+* 特殊：需要管理文件系统的许多资源信息
+*		Inode区
+*		空闲盘块
+*		空闲外存Inode
+***************************************************************/
+class SuperBlock //1024字节 占2个扇区（块）
 {
 public:
-	unsigned int s_isize;			  // Inode区占用的盘块数
-	unsigned int s_fsize;			  // 盘块总数
+	unsigned int s_isize;			  // Inode区尺寸，占用的数据块数量
+	unsigned int s_fsize;			  // 磁盘数据块总数
 	int s_ninode;					  // 直接管理的空闲外存Inode数量
 	int s_inode[NUM_FREE_INODE];	  // 直接管理的空闲外存Inode索引表
 	int s_nfree;					  // 直接管理的空闲盘块数量
 	int s_free[NUM_FREE_BLOCK_GROUP]; // 直接管理的空闲盘块索引表
-	char padding[SIZE_PADDING];		  // 填充使SuperBlock块大小等于1024字节，占据2个扇区
+	char padding[SIZE_PADDING];		  // 填充字节
 
 	// 构造&析构
 	SuperBlock();
@@ -159,65 +211,38 @@ public:
 	void Init();
 };
 
-/*
- * 外存索引节点(DiskINode)的定义
- * 外存Inode位于文件存储设备上的外存Inode区中。每个文件有唯一对应
- * 的外存Inode，其作用是记录了该文件对应的控制信息。
- * 外存Inode中许多字段和内存Inode中字段相对应。外存INode对象长度为64字节，
- * 每个磁盘块可以存放512/64 = 8个外存Inode
- */
-class DiskInode
+/**************************************************************
+* DiskINode 外存索引节点
+* 用途：外存Inode位于文件存储设备上的外存Inode区
+		每个文件有唯一对应的外存Inode
+* 特殊：记录了该文件对应的控制信息。
+*		外存INode对象长度为64字节
+*		每个磁盘块可以存放512/64 = 8个外存Inode
+***************************************************************/
+class DiskInode // 64字节
 {
 public:
-	short d_uid;			// 文件所有者的用户标识数
-	short d_gid;			// 文件所有者的组标识数
-	unsigned int d_mode;	// 状态的标志位，定义见enum INodeFlag
-	int d_nlink;			// 文件联结计数，即该文件在目录树中不同路径名的数量
+	unsigned int d_mode;	// 文件类型和访问控制位
+	int d_nlink;			// 文件硬联结计数，即该文件在目录树中不同路径名的数量
+	short d_uid;			// 文件所有者的用户id
+	short d_gid;			// 文件所有者的组id
 	int d_size;				// 文件大小，字节为单位
-	int d_addr[NUM_I_ADDR]; // 用于文件逻辑块好和物理块好转换的基本索引表
+	int d_addr[NUM_I_ADDR]; // 地址映射表，登记逻辑块和物理块之间的映射关系
 	unsigned int d_atime;	// 最后访问时间
 	unsigned int d_mtime;	// 最后修改时间
 };
 
-/*
- * 缓存控制块buf定义
- * 记录了相应缓存的使用情况等信息
- */
-class Buf
+/**************************************************************
+* Inode 内存索引节点
+* 用途：为文件系统中的所有的资源分配内存的索引
+* 特殊：记录了资源信息
+*		每一个打开的文件、当前访问目录、挂载的子文件系统
+*		只有一个设备，仅需要i_number来确定位置
+***************************************************************/
+class Inode // 64字节
 {
 public:
-	enum BufFlag
-	{
-		B_NONE = 0x0,	// 初始化
-		B_WRITE = 0x1,	// 写操作。将缓存中的信息写到内存上去
-		B_READ = 0x2,	// 读操作。从内存读取信息到缓存中
-		B_DONE = 0x4,	// I/O操作结束
-		B_DELWRI = 0x80 // 延迟写标记
-	};
-
-public:
-	unsigned int b_flags;  // 缓存控制块标志位,定义见enum BufFlag
-	Buf* b_forw;		   // 当前缓存控制块的前驱节点,将Buf插入NODEV队列或某一设备队列
-	Buf* b_back;		   // 当前缓存控制块的后继节点,将Buf插入NODEV队列或某一设备队列
-	Buf* av_forw;		   // 上一个空闲缓存控制块的指针,将Buf插入自由队列或某一I/O请求队列
-	Buf* av_back;		   // 下一个空闲缓存控制块的指针,将Buf插入自由队列或某一I/O请求队列
-	unsigned int b_wcount; // 需传送的字节数
-	char* b_addr;		   // 指向该缓存控制块所管理的缓冲区的首地址
-	unsigned int b_blkno;  // 内存逻辑块号
-
-	Buf();
-	~Buf();
-};
-
-/*
- * 内存索引节点INode类的定义
- * 系统中每一个打开的文件、当前访问目录、挂载的子文件系统都对应唯一的内存inode。
- * 由于只有一个设备，所以不需要存储设备设备号，仅需要i_number来确定位置
- */
-class Inode
-{
-public:
-	/* i_mode中标志位 */
+	// i_mode中标志位
 	enum INodeMode
 	{
 		IDIR = 0x4000,	// 文件类型：目录文件
@@ -232,16 +257,16 @@ public:
 	};
 
 public:
-	short i_uid;			// 文件所有者的用户标识数
-	short i_gid;			// 文件所有者的组标识数
-	unsigned short i_mode;	// 文件权限，定义见enum INodeMode
-	short i_nlink;			// 文件联结计数，即该文件在目录树中不同路径名的数量
+	short i_uid;			// 文件所有者的用户id
+	short i_gid;			// 文件所有者的组id
+	unsigned short i_mode;	// 文件工作方式信息
+	short i_nlink;			// 文件硬联结计数，即该文件在目录树中不同路径名的数量
 	int i_size;				// 文件大小，字节为单位
-	int i_addr[NUM_I_ADDR]; // 指向数据块区，用于文件逻辑块号和物理块号转换的基本索引表
+	int i_addr[NUM_I_ADDR]; // 指向数据块区，地址映射表，用于文件逻辑块号和物理块号转换的基本索引表
 	unsigned int i_atime;	// 最后访问时间
 	unsigned int i_mtime;	// 最后修改时间
 	short i_count;			// 引用计数
-	short i_number;			// 在inode区中的编号,放到最后以便于将内存Inode转换为外存Inode
+	short i_number;			// 在inode区中的编号,将内存Inode转换为外存Inode
 
 	Inode();
 	~Inode();
@@ -277,17 +302,18 @@ public:
 	unsigned short String_to_Mode(string mode);
 };
 
-/*
- * 打开文件控制块File类。
- * 文件所有者的用户标识数、文件读写位置等等。
- */
+/**************************************************************
+* File 打开文件控制块
+* 用途：记录文件系统中文件的信息
+* 特殊：文件使用人的ids、文件读写位置等等
+***************************************************************/
 class File
 {
 public:
 	Inode* f_inode;		   // 指向打开文件的内存Inode指针
 	unsigned int f_offset; // 文件读写位置指针
-	short f_uid;		   // 文件所有者的用户标识数
-	short f_gid;		   // 文件所有者的组标识数
+	short f_uid;		   // 文件所有者的用户id
+	short f_gid;		   // 文件所有者的组id
 
 	File();
 	~File();
@@ -295,44 +321,49 @@ public:
 	void Clean();
 };
 
-/*
- * 缓存控制块管理类BufferManager定义
- */
-class BufferManager
+/**************************************************************
+* UserTable 用户表
+* 用途：文件系统的用户管理
+*		记录用户名和密码
+* 特殊：只有一个root用户
+***************************************************************/
+class UserTable
 {
-private:
-	Buf bFreeList;					   // 自由缓存队列控制块,是一个双向链表
-	Buf devtab;						   // 由于只有一个设备，所以只有一个磁盘设备表
-	Buf m_Buf[NUM_BUF];				   // 缓存控制块数组
-	char Buffer[NUM_BUF][SIZE_BUFFER]; // 缓冲区数组
 public:
-	// 构造函数
-	BufferManager();
-	~BufferManager();
+	short u_id[NUM_USER];						  // 用户id
+	short u_gid[NUM_USER];						  // 用户所在组id
+	char u_name[NUM_USER][NUM_USER_NAME];		  // 用户名
+	char u_password[NUM_USER][NUM_USER_PASSWORD]; // 用户密码
 
-	// 根据物理设备块号读取缓存
-	Buf* GetBlk(int blkno);
+	// 方法：
+	UserTable();
+	~UserTable();
 
-	// 将缓存块bp写到磁盘上
-	void Bwrite(Buf* bp);
+	// 添加root用户
+	void AddRoot();
+	// 添加用户
+	// void AddUser(const short id, const char* name, const char* password, const short givengid);
+	// 删除用户
+	// void DeleteUser(const short id, const char* name);
 
-	// 将缓存块延迟写
-	void Bdwrite(Buf* bp);
+	// void ChangerUserGID(const short id, const char* name, const short gid);
 
-	// 根据物理设备块号读取缓存
-	Buf* Bread(int blkno);
+	short GetGId(const short id);
 
-	// 暂做备用
-	// void Bread(char* buf, int blkno, int offset, int size);
-
-	// 清理Buf
-	void CleanBuf(Buf* bp);
-
-	// 全部保存，写入磁盘
-	void Flush();
+	short FindUser(const char* name, const char* password);
 };
 
-// 相当于FileSystem、FileManager、InodeTable的合体
+/**************************************************************
+* FileSystem 文件系统顶层模块
+* 用途：完成文件系统的整个管理功能
+*		记录了终端的信息
+*		缓存的管理通过 bufManager来管理
+*		外存和文件系统资源的管理通过SuperBlock来管理
+*		内存通过Inode表来管理
+*		文件通过打开文件表管理
+*		root用户有用户表
+* 特殊：只有一个设备，一个进程
+***************************************************************/
 class FileSystem
 {
 private:
@@ -342,7 +373,7 @@ private:
 	BufferManager* bufManager;	  // 缓存控制块管理类
 	SuperBlock* spb;			  // 超级块
 	UserTable* userTable;		  // 用户表
-	File openFileTable[NUM_FILE]; // 打开文件表，由于只有一个进程所以没有进程打开文件表
+	File openFileTable[NUM_FILE]; // 打开文件表，由于只有一个进程所以没有进程打开文件表，直接写在了这里
 	Inode inodeTable[NUM_INODE];  // 内存Inode表
 	Inode* curDirInode;			  // 指向当前目录的Inode指针
 	Inode* rootDirInode;		  // 根目录内存Inode
