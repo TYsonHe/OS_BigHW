@@ -103,6 +103,7 @@ void FileSystem::exit()
 	}
 	this->openFileMap.clear();
 
+    // 安全退出
 	// 将所有的内容都写回磁盘,即延迟写的Buf
 	this->bufManager->Flush();
 }
@@ -368,7 +369,7 @@ void FileSystem::run()
                 }
                 else if (input[0] == "flseek")
                 {
-                    if (input.size() < 3 || input.size() > 2)
+                    if (input.size() != 2)
                     {
                         cout << "输入非法!" << endl;
                         continue;

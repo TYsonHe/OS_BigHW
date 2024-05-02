@@ -24,7 +24,6 @@ void FileSystem::help()
     printf("open  <file-name>                       打开当前目录里名称为file-name的文件\n");
     printf("chmod <file-name> <mode>                修改当前目录下名称为file-name的文件的权限为mode\n");
     printf("                                        mode格式:rwrwrw,r代表可读,w代表可写,-代表没有这个权限\n");
-    printf("                                        三组分别代表文件创建者权限、同组用户权限和其他用户权限\n");
     printf("close <file-name>                       关闭当前目录里名称为file-name的文件\n");
     printf("cat <file-name>                         读取并打印当前目录里名称为file-name的文件内容(需要先打开文件)\n");
     printf("fseek <file-name> <offset>              移动文件指针offset个偏移量，可以为负\n");
@@ -458,7 +457,7 @@ void FileSystem::printFile(string path)
         return;
     }
     cout << "文件内容为:" << endl;
-    cout << BLUE << buffer << RESET; // 设置用蓝色字打印出来
+    cout << BOLDYELLOW << buffer << RESET; // 设置用蓝色字打印出来
     cout << endl << "文件结束!" << endl;
 }
 

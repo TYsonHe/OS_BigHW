@@ -10,14 +10,7 @@ FileSystem::FileSystem()
 // FileSystem类析构函数
 FileSystem::~FileSystem()
 {
-	/*
-	this->exit();
-	delete this->bufManager;
-	delete this->spb;
-	delete this->userTable;
-	if (this->curDirInode != this->rootDirInode)
-		delete this->rootDirInode;
-	delete this->curDirInode;*/
+	// 暂时不需要内容
 }
 
 /**************************************************************
@@ -55,13 +48,13 @@ void FileSystem::WriteSpb()
 	memcpy(bp->b_addr, p, SIZE_BUFFER);
 	this->bufManager->Bwrite(bp);
 	bp = this->bufManager->Bread(POSITION_SUPERBLOCK + 1);
-	// 这里之前有内存泄漏,没有填充的话这里一直会有问题
 	memcpy(bp->b_addr, p + SIZE_BLOCK, SIZE_BLOCK);
 	this->bufManager->Bwrite(bp);
 }
 
 /**************************************************************
 * WriteUserTable 将用户表写回磁盘
+* 这里有bug，cat userTable.txt是查不到东西的……
 * 参数：
 * 返回值：
 ***************************************************************/
@@ -86,11 +79,11 @@ Inode* FileSystem::IAlloc()
     Inode* pNode;
     int ino = 0; // 分配到的空闲外存Inode编号
 
-    // SuperBlock直接管理的空闲Inode索引表已空
-    // 注入新的空闲Inode索引表
     if (this->spb->s_ninode <= 0)
     {
-        // 依次读入磁盘Inode区中的磁盘块，搜索其中空闲外存Inode，记入空闲Inode索引表
+		// SuperBlock直接管理的空闲Inode索引表已空
+		// 注入新的空闲Inode索引表
+        // 依次读入DiskInode区中的磁盘块，搜索其中空闲DiskInode，记入空闲Inode索引表
         for (unsigned int i = 0; i < this->spb->s_isize; i++)
         {
             pBuf = this->bufManager->Bread(POSITION_DISKINODE + i / NUM_INODE_PER_BLOCK);
@@ -110,32 +103,31 @@ Inode* FileSystem::IAlloc()
                     continue;
                 }
 
-                /*
-                 * 如果外存inode的i_mode==0，此时并不能确定
-                 * 该inode是空闲的，因为有可能是内存inode没有写到
-                 * 磁盘上,所以要继续搜索内存inode中是否有相应的项
-                 */
+                // 即使外存inode的i_mode==0，也不能确定该inode是空闲的
+                // 因为有可能是内存inode没有写到磁盘上
+                // 需要继续搜索内存inode中是否有相应的项
+				
                 if (this->IsLoaded(ino) == -1)
                 {
                     // 该外存Inode没有对应的内存拷贝，将其记入空闲Inode索引表
                     this->spb->s_inode[this->spb->s_ninode++] = ino;
 
                     // 如果空闲索引表已经装满，则不继续搜索
-                    if (this->spb->s_ninode >= 100)
+                    if (this->spb->s_ninode >= NUM_FREE_INODE)
                         break;
                 }
             }
 
             // 如果空闲索引表已经装满，则不继续搜索
-            if (this->spb->s_ninode >= 100)
+            if (this->spb->s_ninode >= NUM_FREE_INODE)
                 break;
         }
     }
 
-    // 如果这样了还没有可用外存Inode，返回NULL
+    // 如果这样了还没有可用DiskInode，返回NULL
     if (this->spb->s_ninode <= 0)
     {
-        cout << "磁盘上外存Inode区已满!" << endl;
+        cerr << "磁盘上DiskInode区已满!" << endl;
         throw(ENOSPC);
         return NULL;
     }
@@ -164,28 +156,28 @@ void FileSystem::Free(int blkno)
 	Buf* pBuf;
 	if (blkno < POSITION_BLOCK)
 	{
-		cout << "不能释放系统盘块" << endl;
+		cerr << "不能释放系统盘块[0-33]" << endl;
 		return;
 	}
 
-	// 如果先前系统中已经没有空闲盘块，现在释放的是系统中第1块空闲盘块
 	if (this->spb->s_nfree <= 0)
 	{
+		// 如果先前系统中已经没有空闲盘块，现在释放的是系统中第1块空闲盘块
 		this->spb->s_nfree = 1;
 		this->spb->s_free[0] = 0;
 	}
 
-	// 如果SuperBlock中直接管理空闲磁盘块号的栈已满
 	if (this->spb->s_nfree >= NUM_FREE_BLOCK_GROUP)
 	{
+		// 如果SuperBlock中直接管理空闲磁盘块号的栈已满
 		// 分配一个新缓存块，用于存放新的空闲磁盘块号
 		pBuf = this->bufManager->GetBlk(blkno);
 
 		// 将s_nfree和s_free[100]写入回收盘块的前101个字节
 		// s_free[0]=回收的盘块号
 		// s_nfree=1
-		int* stack = new int[NUM_FREE_BLOCK_GROUP + 1] {0};		// 第一位是链接的上一组的盘块个数
-		stack[0] = this->spb->s_nfree;                          // 第一位是链接的上一组的盘块个数
+		int* stack = new int[NUM_FREE_BLOCK_GROUP + 1] {0}; // 这里申请了新内存
+		stack[0] = this->spb->s_nfree;// 第一位是链接的上一组的盘块个数
 		for (int i = 0; i < NUM_FREE_BLOCK_GROUP; i++)
 			stack[i + 1] = this->spb->s_free[i];
 		memcpy(pBuf->b_addr, IntArray_to_Char(stack, NUM_FREE_BLOCK_GROUP + 1), sizeof(int) * NUM_FREE_BLOCK_GROUP + 1);
@@ -193,6 +185,8 @@ void FileSystem::Free(int blkno)
 
 		this->spb->s_free[0] = blkno;
 		this->spb->s_nfree = 1;
+
+		delete[]stack; // 释放内存
 	}
 
 	// 释放数据盘块号
@@ -200,13 +194,13 @@ void FileSystem::Free(int blkno)
 }
 
 /**************************************************************
-* IsLoaded 判断指定外存Inode是否已经加载到内存中
+* IsLoaded 判断指定DiskInode是否已经加载到内存中
 * 参数：inumber 外存Inode编号
 * 返回值：如果已经加载，返回内存Inode在inodeTable的编号，否则返回-1
 ***************************************************************/
 int FileSystem::IsLoaded(int inumber)
 {
-    // 寻找指定外存Inode的内存inode拷贝
+    // 寻找指定DiskInode的内存inode拷贝
     for (int i = 0; i < NUM_INODE; i++)
         if (this->inodeTable[i].i_count != 0 && this->inodeTable[i].i_number == inumber)
             return i;
@@ -222,7 +216,7 @@ int FileSystem::IsLoaded(int inumber)
 Inode* FileSystem::IGet(int inumber)
 {
     Inode* pInode = NULL;
-    // 在inodeTable中查找指定外存Inode的内存inode拷贝
+    // 在inodeTable中查找指定DiskInode的内存inode拷贝
     int isInTable = this->IsLoaded(inumber);
 
     // 如果找到了，直接返回内存inode拷贝，引用计数加1
@@ -251,14 +245,14 @@ Inode* FileSystem::IGet(int inumber)
         return pInode;
     }
 
-    // 如果内存InodeTabl没满，从外存读取指定外存Inode到内存中
+    // 如果内存InodeTabl没满，从外存读取指定DiskInode到内存中
     pInode->i_number = inumber;
     pInode->i_count++;
     pInode->i_atime = unsigned int(time(NULL));
 
-    // 将该外存Inode读入缓冲区
+    // 将该DiskInode读入缓冲区
     Buf* pBuf = this->bufManager->Bread(POSITION_DISKINODE + (inumber - 1) / NUM_INODE_PER_BLOCK);
-    // 将缓冲区中的外存Inode信息拷贝到新分配的内存Inode中
+    // 将缓冲区中的DiskInode信息拷贝到新分配的内存Inode中
     pInode->ICopy(pBuf, inumber);
     return pInode;
 }
@@ -270,25 +264,25 @@ Inode* FileSystem::IGet(int inumber)
 ***************************************************************/
 void FileSystem::IPut(Inode* pNode)
 {
-	// 当前进程为引用该内存Inode的唯一进程，且准备释放该内存Inode
 	if (pNode->i_count == 1)
 	{
-		pNode->i_atime = unsigned int(time(NULL));
-		pNode->WriteI();
+		// 当前进程为引用该内存Inode的唯一进程，且准备释放该内存Inode
+		pNode->i_atime = unsigned int(time(NULL)); // 修改最后访问时间
+		pNode->WriteI(); // 更新到外存
 
-		// 该文件已经没有目录路径指向它
 		if (pNode->i_nlink <= 0)
 		{
-			// 释放该文件占据的数据盘块
+			// 该Inode已经没有目录路径指向它
+			// 释放该Inode占据的数据盘块
 			pNode->ITrunc();
 			pNode->i_mode = 0;
 			// 释放对应的外存Inode
 			this->IFree(pNode->i_number);
 		}
-		pNode->Clean();
+		pNode->Clean();// 清空Inode初始化
 	}
 
-	// 减少内存Inode的引用计数
+	// 只需要减少内存Inode的引用计数
 	pNode->i_count--;
 }
 
@@ -299,11 +293,12 @@ void FileSystem::IPut(Inode* pNode)
 ***************************************************************/
 void FileSystem::IFree(int number)
 {
-	// spb够用
+	// SuperBlock索引表全满时：直接返回，不需要记录
 	if (this->spb->s_ninode >= NUM_FREE_INODE)
 		return;
 
-	// 将该外存Inode的编号记入空闲Inode索引表，后来的会直接覆盖掉它的内容
+	// 将该外存Inode的编号记入空闲Inode索引表
+	// 这样后来的会直接覆盖掉它的内容
 	this->spb->s_inode[this->spb->s_ninode++] = number;
 }
 
@@ -389,18 +384,19 @@ Buf* FileSystem::Alloc()
     // 从索引表“栈顶”获取空闲磁盘块编号
     blkno = this->spb->s_free[--this->spb->s_nfree];
 
-    // 已分配尽所有的空闲磁盘块，直接返回
     if (0 == blkno)
     {
+		// 已分配尽所有的空闲磁盘块，直接返回
         this->spb->s_nfree = 0;
-        cout << "磁盘已满!没有空余盘块" << endl;
+        cerr << "磁盘已满!没有空余盘块" << endl;
         throw(ENOSPC);
         return NULL;
     }
 
-    // 空闲磁盘块索引表已空，下一组空闲磁盘块的编号读入SuperBlock的s_free
     if (this->spb->s_nfree <= 0)
     {
+		// 表明空闲磁盘块索引表已空
+		// 需要将下一组空闲磁盘块的编号读入SuperBlock的s_free
         // 读入该空闲磁盘块
         pBuf = this->bufManager->Bread(blkno);
 
@@ -414,8 +410,8 @@ Buf* FileSystem::Alloc()
             this->spb->s_free[i] = (int)p[i + 1];
     }
 
-    // 这样的话分配一空闲磁盘块，返回该磁盘块的缓存指针
-    pBuf = this->bufManager->GetBlk(blkno); // 为该磁盘块申请缓存
+    // 分配一空闲磁盘块，返回该磁盘块的缓存指针
+    pBuf = this->bufManager->GetBlk(blkno);	  // 为该磁盘块申请缓存
     this->bufManager->CleanBuf(pBuf);         // 清空缓存中的数据
 
     return pBuf;

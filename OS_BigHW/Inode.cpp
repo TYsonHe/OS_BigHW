@@ -136,7 +136,7 @@ void Inode::WriteI()
     bp = bufMgr->Bread(POSITION_DISKINODE + (this->i_number - 1) / NUM_INODE_PER_BLOCK);
     int offset = ((this->i_number - 1) % NUM_INODE_PER_BLOCK) * sizeof(DiskInode);
 
-    DiskInode* dp = new DiskInode;
+    DiskInode* dp = new DiskInode; // 申请内存
     // 将内存Inode复制到磁盘Inode中
     dp->d_mode = this->i_mode;
     dp->d_nlink = this->i_nlink;
@@ -149,7 +149,7 @@ void Inode::WriteI()
         dp->d_addr[i] = this->i_addr[i];
     memcpy(bp->b_addr + offset, dp, sizeof(DiskInode));
     bufMgr->Bwrite(bp);
-    delete dp;
+    delete dp;// 释放内存
 }
 
 /**************************************************************
@@ -258,16 +258,18 @@ int Inode::AssignMode(unsigned short mode)
 
 /**************************************************************
 * Bmap 将逻辑块号lbn映射到物理盘块号phyBlkno
-* 参数：lbn  逻辑块号lbn，是在i_addr[]中的索引
+* 参数：lbn  逻辑块号lbn，是在i_addr[]中的索引idx
 * 返回值：返回物理盘块号phyBlkno
 ***************************************************************/
 int Inode::Bmap(int lbn)
 {
     /******************************************************************************
-     * 我设计的文件索引结构：(小型、大型文件)
-     * (1) i_addr[0] - i_addr[7]为直接索引表，文件长度范围是0 ~ 8个盘块
-     * (2) i_addr[8] - i_addr[9]为一次间接索引表所在磁盘块号，每磁盘块
-     * 上存放128个(512/4)文件数据盘块号，此类文件长度范围是9 - (128 * 2 + 8)个盘块；
+     * 我设计的文件索引结构：
+     * (1) 小型文件：i_addr[0] - i_addr[4]为直接索引表，文件长度范围是0 ~ 5个盘块
+     * 对应字节数为[0 ~ 5*512]
+     * (2) 大型文件：i_addr[5] - i_addr[9]为一次间接索引表所在磁盘块号，每磁盘块
+     * 上存放128个(512/4)文件数据盘块号，此类文件长度范围是6 ~ (128 * 5 + 5)个盘块；
+     * 对应字节数为[5*512+1 ~ (5+128*5)*512]
      ******************************************************************************/
 
     Buf* pFirstBuf, * pSecondBuf;

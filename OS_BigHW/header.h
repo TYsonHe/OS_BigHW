@@ -4,6 +4,7 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 
+// 设置唯一用户ROOT的信息
 #define ROOT_ID 0
 #define ROOT_GID 0
 #define ROOT_DIR_INUMBER 1
@@ -12,6 +13,8 @@
 #define RESET   "\033[0m"
 #define RED     "\033[31m"      /* Red */
 #define BLUE    "\033[34m"      /* Blue */
+#define YELLOW  "\033[33m"      /* YELLOW */
+#define BOLDYELLOW  "\033[1m\033[33m"      /* Bold Yellow */
 
 #include <iostream>
 #include <conio.h>
@@ -85,9 +88,11 @@ static const unsigned int POSITION_DIRECTORY = POSITION_BLOCK;
 static const int NUM_FILE = 100;
 // FileSystem:IndoeTable中最多Inode数
 static const int NUM_INODE = 100;
+
+// i_addr索引设计
 // 大型文件使用的最多的盘块数量
 static const int NUM_FILE_INDEX = SIZE_BLOCK / sizeof(int);
-static const int NUM_BLOCK_IFILE = 5;
+static const int NUM_BLOCK_IFILE = 5; // 大文件逻辑索引开始的号，表明i_addr[0]-[4]为直接索引，i_addr[5-10]为间接索引
 static const int NUM_BLOCK_ILARG = NUM_FILE_INDEX * (NUM_I_ADDR - NUM_BLOCK_IFILE) + NUM_BLOCK_IFILE;
 
 /**************************************************************
@@ -341,15 +346,11 @@ public:
 
 	// 添加root用户
 	void AddRoot();
-	// 添加用户
-	// void AddUser(const short id, const char* name, const char* password, const short givengid);
-	// 删除用户
-	// void DeleteUser(const short id, const char* name);
 
-	// void ChangerUserGID(const short id, const char* name, const short gid);
-
+	// 获得组用户Id
 	short GetGId(const short id);
 
+	// 查找用户，登录功能
 	short FindUser(const char* name, const char* password);
 };
 
@@ -394,6 +395,7 @@ private:
 	// 分配一个空闲的外存Inode
 	Inode* IAlloc();
 
+	// 释放内存Inode
 	void IPut(Inode* pNode);
 
 	// 分配空闲打开文件控制块File结构
