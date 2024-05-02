@@ -361,3 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/OS_BigHW/1.docx
+/OS_BigHW/1.jpg
+/OS_BigHW/1.txt
