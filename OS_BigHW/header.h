@@ -157,9 +157,6 @@ public:
 	// 根据物理设备块号读取缓存
 	Buf* Bread(int blkno);
 
-	// 暂做备用
-	// void Bread(char* buf, int blkno, int offset, int size);
-
 	// 清理Buf
 	void CleanBuf(Buf* bp);
 
@@ -252,7 +249,7 @@ public:
 	{
 		IDIR = 0x4000,	// 文件类型：目录文件
 		IFILE = 0x2000, // 文件类型：文件
-		ILARG = 0x1000, // 文件类型：大文件,有ILARG必有IFILE
+		ILARG = 0x1000, // 文件类型：大文件,ILARG与IFILE一起出现
 		OWNER_R = 0x200,
 		OWNER_W = 0x100,
 		GROUP_R = 0x20,
@@ -447,6 +444,8 @@ public:
 	int fopen(string path);
 	// 根据fd关闭文件
 	void fclose(File* fp);
+	// 读文件
+	void fread(File* fp, char*& buffer, int count);
 	// 写文件
 	void fwrite(const char* buffer, int count, File* fp);
 	// 移动文件指针
@@ -454,18 +453,18 @@ public:
 	// 删除文件
 	int fdelete(string path);
 
-	// Directory getDir();
-
-	void fread(File* fp, char*& buffer, int count);
+	// 文件系统初始化
 	void init();
 	
 	// 终端程序需要用到的命令
+	// 目录命令
 	void ls();
 	void cd(string subname);
 	void rmdir(string subname);
 	void mkdir_terminal(string subname);
 	void ll();
 
+	// 文件操作命令
 	void openFile(string path);
 	void createFile(string path);
 	void removeFile(string path);
@@ -478,14 +477,8 @@ public:
 	void copy_from_fs(string filename, string winpath, int count);
 	void print0penFileList();
 	void chmod(string path, string mode);
-	
 
-	// void relogin();
-	// void adduser();
-	// void chgroup();
-	// void deluser();
-	// void printUserList();
-
+	// 其它命令
 	void help();
 	void format();
 	void login();

@@ -835,7 +835,7 @@ void FileSystem::fwrite(const char* buffer, int count, File* fp)
 {
 	if (fp == NULL)
 	{
-		cout << "文件指针为空!" << endl;
+		cerr << "文件指针为空!" << endl;
 		throw(EBADF);
 		return;
 	}
@@ -843,14 +843,14 @@ void FileSystem::fwrite(const char* buffer, int count, File* fp)
 	// 如果找到，判断是否有权限打开文件
 	if (this->Access(fp->f_inode, FileMode::WRITE) == 0)
 	{
-		cout << "没有权限写文件!" << endl;
+		cerr << "没有权限写文件!" << endl;
 		throw(EACCES);
 		return;
 	}
 
 	if (count + fp->f_offset > SIZE_BLOCK * NUM_BLOCK_ILARG)
 	{
-		cout << "写入文件太大!" << endl;
+		cerr << "写入文件太大!" << endl;
 		throw(EFBIG);
 		return;
 	}
@@ -858,13 +858,13 @@ void FileSystem::fwrite(const char* buffer, int count, File* fp)
 	Inode* pInode = fp->f_inode;
 
 	// 写文件的三种情况：
-	// 1. 写入的起始位置为逻辑块的起始地址；写入字节数为512------异步写
-	// 2. 写入的起始位置不是逻辑块的起始地址；写入字节数为512----先读后写
-	//  2.1 写到缓存末尾-----------------------------------------异步写
-	//	2.2 没有写到缓存末尾-------------------------------------延迟写
+	// 1. 写入的起始位置为逻辑块的起始地址------同步写
+	// 2. 写入的起始位置不是逻辑块的起始地址----先读后写
+	//  2.1 写到缓存末尾------------------------异步写
+	//	2.2 没有写到缓存末尾--------------------延迟写
 
-	int pos = 0; // 已经写入的字节数
-	while (pos < count)
+	int curWriteCnt = 0; // 已经写入的字节数
+	while (curWriteCnt < count)
 	{
 		// 计算本次写入位置在文件中的位置
 		int startpos = fp->f_offset;
@@ -872,17 +872,17 @@ void FileSystem::fwrite(const char* buffer, int count, File* fp)
 		int blkno = pInode->Bmap(startpos / SIZE_BLOCK);
 		// 计算本次写入的大小
 		int size = SIZE_BLOCK - startpos % SIZE_BLOCK;
-		if (size > count - pos)
-			size = count - pos; // 修正写入的大小
+		if (size > count - curWriteCnt)
+			size = count - curWriteCnt; // 修正写入的大小
 
-		cout << "[writing block no]:" << blkno << endl;
+		// 测试：cout << "[writing block no]:" << blkno << endl;
 		// 如果写入的起始位置为逻辑块的起始地址；写入字节数为512-------异步写
 		if (startpos % SIZE_BLOCK == 0 && size == SIZE_BLOCK)
 		{
 			// 申请缓存
 			Buf* pBuf = this->bufManager->GetBlk(blkno);
 			// 将数据写入缓存
-			memcpy(pBuf->b_addr, buffer + pos, size);
+			memcpy(pBuf->b_addr, buffer + curWriteCnt, size);
 			// 将数据立即写入磁盘
 			this->bufManager->Bwrite(pBuf);
 		}
@@ -891,7 +891,7 @@ void FileSystem::fwrite(const char* buffer, int count, File* fp)
 			// 申请缓存
 			Buf* pBuf = this->bufManager->Bread(blkno);
 			// 将数据写入缓存
-			memcpy(pBuf->b_addr + startpos % SIZE_BLOCK, buffer + pos, size);
+			memcpy(pBuf->b_addr + startpos % SIZE_BLOCK, buffer + curWriteCnt, size);
 
 			// 写到缓存末尾---异步写
 			if (startpos % SIZE_BLOCK + size == SIZE_BLOCK)
@@ -900,7 +900,7 @@ void FileSystem::fwrite(const char* buffer, int count, File* fp)
 				this->bufManager->Bdwrite(pBuf);
 		}
 
-		pos += size;
+		curWriteCnt += size;
 		fp->f_offset += size; // 调整文件指针
 	}
 
@@ -969,7 +969,6 @@ int FileSystem::fopen(string path)
 * 参数：fp 文件指针
 * 返回值：
 ***************************************************************/
-// 根据fd关闭文件
 void FileSystem::fclose(File* fp)
 {
 	// 释放内存结点
@@ -980,6 +979,7 @@ void FileSystem::fclose(File* fp)
 /**************************************************************
 * fread 读文件到字符串中
 * 参数：fp 文件指针 buffer 读取内容索要存放的字符串 count  读取的字节数
+* 特殊：这里会为buffer申请内存，需要在外部使用完后释放
 * 返回值：
 ***************************************************************/
 void FileSystem::fread(File* fp, char*& buffer, int count)
@@ -1001,30 +1001,31 @@ void FileSystem::fread(File* fp, char*& buffer, int count)
 	// 获取文件的Inode
 	Inode* pInode = fp->f_inode;
 	if (count > 0)
-		buffer = new char[count + 1];
+		buffer = new char[count + 1]; // 这里申请了内存,需要在外部进行内存的释放
 	else
 	{
 		buffer = NULL;
 		return;
 	}
-	int pos = 0; // 已经读取的字节数
-	while (pos < count)
+	int curReadCnt = 0; // 已经读取的字节数
+	while (curReadCnt < count)
 	{
 		// 计算本读取位置在文件中的位置
 		int startpos = fp->f_offset;
 		if (startpos >= pInode->i_size) // 读取位置超出文件大小
 			break;
-		// 计算本次读取物理盘块号，由于上一个判断,不会有读取位置超出文件大小的问题
+		// 计算本次读取物理盘块号
 		int blkno = pInode->Bmap(startpos / SIZE_BLOCK);
 		// 计算本次读取的大小
 		int size = SIZE_BLOCK - startpos % SIZE_BLOCK;
-		if (size > count - pos)
-			size = count - pos; // 修正读取的大小
+		if (size > count - curReadCnt)
+			size = count - curReadCnt; // 修正读取的大小
 
 		Buf* pBuf = this->bufManager->Bread(blkno);
-		// TODO:如有大文件这里需要改
-		memcpy(buffer + pos, pBuf->b_addr + startpos % SIZE_BLOCK, size);
-		pos += size;
+
+		// 将读取的内容拷贝
+		memcpy(buffer + curReadCnt, pBuf->b_addr + startpos % SIZE_BLOCK, size);
+		curReadCnt += size;
 		fp->f_offset += size;
 	}
 	buffer[count] = '\0'; // 设置结束标记

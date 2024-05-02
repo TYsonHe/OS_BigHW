@@ -449,7 +449,7 @@ void FileSystem::printFile(string path)
     int count = fp->f_inode->i_size;
     int oldoffset = fp->f_offset; // 记录旧的文件指针位置
     fp->f_offset = 0;
-    this->fread(fp, buffer, count);
+    this->fread(fp, buffer, count); // 这里为buffer申请了内存
     fp->f_offset = oldoffset;
     if (buffer == NULL)
     {
@@ -459,6 +459,8 @@ void FileSystem::printFile(string path)
     cout << "文件内容为:" << endl;
     cout << BOLDYELLOW << buffer << RESET; // 设置用蓝色字打印出来
     cout << endl << "文件结束!" << endl;
+
+    delete[]buffer;// 释放申请的内存
 }
 
 /**************************************************************
@@ -580,7 +582,7 @@ void FileSystem::copy_from_fs(string filename, string winpath, int count)
     char* buffer = NULL;
     // 修正读取大小
     int actualcount = ((count + (int)fp->f_offset) < fp->f_inode->i_size) ? count : (fp->f_inode->i_size - fp->f_offset);
-    this->fread(fp, buffer, actualcount);
+    this->fread(fp, buffer, actualcount); // 这里为buffer申请了内存
 
     // 查看本系统文件
     if (buffer == NULL)
@@ -591,6 +593,8 @@ void FileSystem::copy_from_fs(string filename, string winpath, int count)
     fd.write(buffer, actualcount); // 写入文件内容
     fd.close(); // 关闭windows文件
     cout << "成功导出文件" << filename << ",写入大小为" << actualcount << endl;
+
+    delete[]buffer;// 释放申请的内存
 }
 
 /**************************************************************
@@ -609,7 +613,6 @@ void FileSystem::print0penFileList()
     cout << std::left << setw(20) << "文件名路径" << setw(10) << "文件描述符" << setw(10) << "文件指针" << endl;
     for (const auto& pair : this->openFileMap)
         cout << std::left << setw(20) << pair.first << setw(10) << pair.second << setw(10) << this->openFileTable[pair.second - 1].f_offset << endl;
-    cout << endl;
 }
 
 /**************************************************************
