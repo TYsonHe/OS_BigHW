@@ -349,13 +349,86 @@ Inode* FileSystem::NameI(string path)
 			// 循环查找目录中的每个元素
 			for (int i = 0; i < NUM_SUB_DIR; i++)
 			{
-				// 如果找到对应子目录
+				// 如果找到对应子目录或文件
 				if (paths[path_cnt] == fatherDir->d_filename[i])
 				{
 					path_cnt++;
 					isFind = true;
 					pInode = this->IGet(fatherDir->d_inodenumber[i]);
 					break;
+				}
+			}
+
+			// 如果没有找到对应的文件或目录
+			if (!isFind)
+				return NULL;
+		}
+		else // 不是目录文件是错误的
+			return NULL;
+	}
+
+	// 到这个部分说明找到了对应的文件或者目录
+	return pInode;
+}
+
+/**************************************************************
+* NameI 根据文件路径查找对应的Inode
+* 参数：path 文件路径
+* 返回值：Inode* 返回对应的Inode，如果没有找到，返回NULL
+***************************************************************/
+Inode* FileSystem::NameI(string path,bool findDir)
+{
+	Inode* pInode;
+	Buf* pbuf;
+	vector<string> paths = stringSplit(path, '/'); // 所以要求文件夹和文件的名中不能出现"/"
+	int path_cnt = 0; // 记录path的长度，来匹配循环深度
+	bool isFind = false;
+
+	if (path.size() != 0 && path[0] == '/')
+		pInode = this->rootDirInode;// 从根目录开始查找
+	else
+		pInode = this->curDirInode;// 相对路径的查找
+
+	// 获取盘块号
+	int blkno = pInode->Bmap(0);
+	// 读取磁盘的数据
+
+	while (true)
+	{
+		isFind = false;
+		// 包含path为空的情况
+		if (path_cnt == paths.size()) // 这种情况说明找到了对应的文件或目录
+			break;
+		else if (path_cnt >= paths.size())
+			return NULL;
+
+		// 如果现有的Inode是目录文件才正确,因为在这里面的循环才会找到文件/目录
+		// 一旦找到文件/目录不会进入这个循环
+		if (pInode->i_mode & Inode::INodeMode::IDIR)
+		{
+			// 计算要读的物理盘块号
+			// 由于目录文件只占一个盘块，所以只有一项不为空
+			int blkno = pInode->Bmap(0);
+			// 读取磁盘的数据
+			pbuf = this->bufManager->Bread(blkno);
+
+			// 将数据转为目录结构
+			Directory* fatherDir = Char_to_Directory(pbuf->b_addr);
+
+			// 循环查找目录中的每个元素
+			for (int i = 0; i < NUM_SUB_DIR; i++)
+			{
+				// 如果找到对应子目录或文件
+				if (paths[path_cnt] == fatherDir->d_filename[i])
+				{
+					pInode = this->IGet(fatherDir->d_inodenumber[i]);
+					if (pInode->i_mode & Inode::INodeMode::IDIR) 
+					{
+						// 只找同名文件夹，不找文件
+						path_cnt++;
+						isFind = true;
+						break;
+					}
 				}
 			}
 
@@ -1014,8 +1087,10 @@ void FileSystem::fread(File* fp, char*& buffer, int count)
 		int startpos = fp->f_offset;
 		if (startpos >= pInode->i_size) // 读取位置超出文件大小
 			break;
+
 		// 计算本次读取物理盘块号
 		int blkno = pInode->Bmap(startpos / SIZE_BLOCK);
+
 		// 计算本次读取的大小
 		int size = SIZE_BLOCK - startpos % SIZE_BLOCK;
 		if (size > count - curReadCnt)
@@ -1030,7 +1105,7 @@ void FileSystem::fread(File* fp, char*& buffer, int count)
 	}
 	buffer[count] = '\0'; // 设置结束标记
 
-	pInode->i_atime = unsigned int(time(NULL));
+	pInode->i_atime = unsigned int(time(NULL)); // 更改文件信息
 }
 
 /**************************************************************

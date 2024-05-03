@@ -255,7 +255,7 @@ void FileSystem::run()
                         continue;
                     }
                     this->ll();
-                    needEndl = true;
+                    needEndl = false;
                 }
 
                 // 文件管理
@@ -348,7 +348,7 @@ void FileSystem::run()
                     }
                     this->chmod(input[1], input[2]);
                 }
-                else if (input[0] == "listopen")
+                else if (input[0] == "lsfs")
                 {
                     if (input.size() < 1 || input.size() > 1)
                     {
@@ -384,6 +384,11 @@ void FileSystem::run()
                 }
                 else if (input[0] == "help")
                     this->help();
+                else if (input[0] == "pwd")
+                {
+                    this->pwd();
+                    needEndl = false;
+                }
                 else if (input[0] == "exit")
                 {
                     this->exit();

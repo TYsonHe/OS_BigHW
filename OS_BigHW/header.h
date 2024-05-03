@@ -14,6 +14,8 @@
 #define RED     "\033[31m"      /* Red */
 #define BLUE    "\033[34m"      /* Blue */
 #define YELLOW  "\033[33m"      /* YELLOW */
+#define MAGENTA "\033[35m"      /* Magenta */
+#define CYAN    "\033[36m"      /* Cyan */
 #define BOLDYELLOW  "\033[1m\033[33m"      /* Bold Yellow */
 
 #include <iostream>
@@ -379,6 +381,7 @@ private:
 
 	// 根据path获取Inode
 	Inode* NameI(string path);
+	Inode* NameI(string path, bool findDir); // NameI函数重载，只寻找IDIR类型的Inode
 
 	// 判断指定外存Inode是否已经加载到内存中
 	int IsLoaded(int inumber);
@@ -429,9 +432,6 @@ public:
 	// 分配空闲数据盘块
 	Buf* Alloc();
 
-	// 获取当前用户的ID
-	// short getCurUserID();
-
 	// 创建文件
 	int fcreate(string path);
 	// 创建文件夹
@@ -480,6 +480,7 @@ public:
 
 	// 其它命令
 	void help();
+	void pwd();
 	void format();
 	void login();
 	void run();

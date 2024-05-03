@@ -8,23 +8,24 @@
 ***************************************************************/
 void FileSystem::help()
 {
-    printf("下列命令中带'<>'的项是必须的，带'[]'的项是可选择的\n");
-    printf("请注意：本系统中路径用'/'分隔，windows系统路径用'\\'分割\n");
-    printf("        VS中默认编码是GBK,想要正确输出文件内容，请保持编码一致\n");
-    cout <<RED<<"        请勿随便关掉控制台,想要正确退出系统一定要输入exit\n"<<RESET; // 设置用红色字打印出来
+    printf("命令行参数带'<>'必填，带'[]'可选\n");
+    printf("本系统中路径用'/'分隔，windows系统路径用'\\'分割\n");
+    printf("VS中默认编码是GBK,想要正确输出文件内容，请保持编码一致(ANSI)\n");
+    cout <<RED<<"请勿随便关掉控制台,想要正确退出系统一定要输入exit\n"<<RESET; // 设置用红色字打印出来
     printf("--------------目录相关---------------\n");
-    printf("ls                                      查看当前目录下的子目录\n");
+    printf("ls                                      列出当前目录下的子目录\n");
     printf("ll                                      查看当前目录下的详细信息\n");
-    printf("cd    <dir-name>                        打开在当前目录下名称为dir-name的子目录\n");
+    printf("cd    <path>                            切换到路径为path的子目录\n");
+    cout << "                                       请注意不支持相对路径搜索" << endl;
     printf("mkdir <dir-name>                        创建在当前目录下名称为dir-name的子目录\n");
     printf("rmdir <dir-name>                        删除在当前目录下名称为dir-name的子目录\n");
     printf("--------------文件相关---------------\n");
     printf("touch <file-name>                       在当前目录下创建名称为file-name的文件\n");
-    printf("rm    <file-name>                       删除当前目录里名称为file-name的文件\n");
-    printf("open  <file-name>                       打开当前目录里名称为file-name的文件\n");
+    printf("rm    <file-name>                       删除当前目录下名称为file-name的文件\n");
+    printf("open  <file-name>                       打开当前目录下名称为file-name的文件\n");
     printf("chmod <file-name> <mode>                修改当前目录下名称为file-name的文件的权限为mode\n");
-    printf("                                        mode格式:rwrwrw,r代表可读,w代表可写,-代表没有这个权限\n");
     printf("close <file-name>                       关闭当前目录里名称为file-name的文件\n");
+    printf("                                        mode格式:rwrwrw,r代表可读,w代表可写,-代表没有该权限\n");
     printf("cat <file-name>                         读取并打印当前目录里名称为file-name的文件内容(需要先打开文件)\n");
     printf("fseek <file-name> <offset>              移动文件指针offset个偏移量，可以为负\n");
     printf("flseek <file-name>                      查看文件的指针位置\n");
@@ -35,8 +36,9 @@ void FileSystem::help()
     printf("cpfwin <win-path>                       将windows系统电脑上路径为win-path的文件复制到当前目录中\n");
     printf("cpffs <file-name> <win-path> <count>    将本系统上当前目录中名称为file-name的文件按从文件指针开始的位置复制count个字节\n");
     printf("                                        到电脑上路径为win-path的文件里(需要先打开文件)\n");
-    printf("listopen                                打印已打开文件列表\n");
+    printf("lsfs                                    打印已打开文件列表\n");
     printf("----------------其他----------------\n");
+    printf("pwd                                     查看当前路径\n");
     printf("clear                                   清空屏幕内容\n");
     printf("format                                  格式化文件系统\n");
     printf("exit                                    退出系统\n");
@@ -78,7 +80,18 @@ void FileSystem::login()
 }
 
 /**************************************************************
-* ls 列出目录
+* pwd 列出当前文件路径
+* 参数：
+* 返回值：
+***************************************************************/
+void FileSystem::pwd()
+{
+    cout << this->curDir<< endl;
+}
+
+
+/**************************************************************
+* ls 列出所有文件
 * 参数：
 * 返回值：
 ***************************************************************/
@@ -90,19 +103,25 @@ void FileSystem::ls()
     {
         if (dir->d_inodenumber[i] == 0)
             break;
-        cout << dir->d_filename[i] << "\t";
+        Inode* p = this->IGet(dir->d_inodenumber[i]);
+        if (p->i_mode & Inode::INodeMode::IDIR)
+        {
+            cout<<CYAN<< dir->d_filename[i] << "\t"<<RESET;
+        }
+        else
+            cout << dir->d_filename[i] << "\t";
     }
 }
 
 /**************************************************************
 * cd 切换目录
-* 参数：subname 子目录名称
+* 参数：path 子目录路径
 * 返回值：
 ***************************************************************/
-void FileSystem::cd(string subname)
+void FileSystem::cd(string path)
 {
     // 回退到父目录的情况
-    if (subname == "..")
+    if (path == "..")
     {
         if (this->curDir == "/") // 根目录情况
             return;
@@ -116,12 +135,29 @@ void FileSystem::cd(string subname)
 
         return;
     }
-    else if (subname == ".") // 当前目录情况
+    else if (path == ".") // 当前目录情况
     {
         return;
     }
 
-    // 普通情况，进入子文件夹中
+    if (path[0] == '/')
+    {
+        // 从绝对路径开始搜索
+        Inode* pInode = NameI(path,true);
+        if (pInode == NULL)
+        {
+            cerr << "目录不存在!" << endl;
+            return;
+        }
+        if(path.size()==1)
+            this->curDir = path;
+        else
+            this->curDir = path+ "/";
+        this->curDirInode = pInode;
+        return;
+    }
+
+    // 搜索当前目录的子文件夹
     Directory* dir = this->curDirInode->GetDir();
     Inode* pInode = NULL;
     int i;
@@ -129,7 +165,7 @@ void FileSystem::cd(string subname)
     {
         if (dir->d_inodenumber[i] == 0)
             continue;
-        if (strcmp(dir->d_filename[i], subname.c_str()) == 0)
+        if (strcmp(dir->d_filename[i], path.c_str()) == 0)
         {
             pInode = this->IGet(dir->d_inodenumber[i]);
             if (pInode->i_mode & Inode::INodeMode::IFILE)
@@ -143,8 +179,10 @@ void FileSystem::cd(string subname)
         cout << "目录不存在!" << endl;
         return;
     }
-    this->curDir += subname + "/";
+    this->curDir += path + "/";
     this->curDirInode = this->IGet(dir->d_inodenumber[i]);
+    return;
+
 }
 
 /**************************************************************
@@ -257,7 +295,7 @@ void FileSystem::ll()
             cout << std::left << setw(12) << FileMode_to_String(p->i_mode)
             << std::left << setw(12) << p->GetModeString(this->curId, this->userTable->GetGId(this->curId))
             << std::left << setw(20) << time
-            << std::left << setw(12) << " "
+            << std::left << setw(12) << "<FILE>"
             << std::left << setw(15) << p->i_size
             << std::left << dir->d_filename[i] << endl;
         else if (p->i_mode & Inode::INodeMode::IDIR)
