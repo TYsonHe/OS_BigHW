@@ -397,6 +397,7 @@ void FileSystem::run()
                 else
                 {
                     cout << "指令不存在，请通过help查阅指令和帮助信息";
+                    cout << endl;
                 }
             }
         }

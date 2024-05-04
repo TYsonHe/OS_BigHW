@@ -16,7 +16,7 @@ void FileSystem::help()
     printf("ls                                      列出当前目录下的子目录\n");
     printf("ll                                      查看当前目录下的详细信息\n");
     printf("cd    <path>                            切换到路径为path的子目录\n");
-    cout << "                                       请注意不支持相对路径搜索" << endl;
+    cout <<"                                        请注意不支持相对路径搜索" << endl;
     printf("mkdir <dir-name>                        创建在当前目录下名称为dir-name的子目录\n");
     printf("rmdir <dir-name>                        删除在当前目录下名称为dir-name的子目录\n");
     printf("--------------文件相关---------------\n");
