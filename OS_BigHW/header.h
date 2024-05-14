@@ -2,12 +2,8 @@
 #ifndef HEADER_H
 #define HEADER_H
 
+// 设置报错忽略
 #define _CRT_SECURE_NO_WARNINGS
-
-// 设置唯一用户ROOT的信息
-#define ROOT_ID 0
-#define ROOT_GID 0
-#define ROOT_DIR_INUMBER 1
 
 // 设置颜色输出
 #define RESET   "\033[0m"
@@ -18,6 +14,11 @@
 #define CYAN    "\033[36m"      /* Cyan */
 #define BOLDYELLOW  "\033[1m\033[33m"      /* Bold Yellow */
 
+// 设置唯一用户ROOT的信息
+#define ROOT_ID 0
+#define ROOT_GID 0
+#define ROOT_DIR_INUMBER 1
+
 #include <iostream>
 #include <conio.h>
 #include <fstream>
@@ -27,75 +28,116 @@
 #include <map>
 using namespace std;
 
-// 文件卷名称
+/**************************************************************
+文件系统参数设置
+包含：
+* 文件卷名称
+* 文件逻辑块大小: 512字节
+* 文件卷大小
+* 文件所有Block数量
+***************************************************************/
 static const string DISK_PATH = "myDisk.img";
-// 文件逻辑块大小: 512字节
 static const int SIZE_BLOCK = 512;
-// 文件卷大小
 static const int SIZE_DISK = SIZE_BLOCK * 8192;
-// 文件所有Block数量
 static const int NUM_BLOCK_ALL = SIZE_DISK / SIZE_BLOCK;
 
-// DiskInode数量
+/**************************************************************
+外存DiskInode参数设置
+包含：
+* DiskInode数量
+* DiskInode中可以使用的最大物理块数量
+* DiskInode大小（以Byte为单位）
+* DiskInode开始的位置（以块号为单位）
+* 每个Block中DiskInode的数量
+***************************************************************/
 static const int NUM_DISKINODE = 256;
-// DiskInode中可以使用的最大物理块数量
 static const int NUM_I_ADDR = 10;
-// DiskInode大小（以字节为单位）
 static const int SIZE_DISKINODE = 64;
-// DiskInode开始的位置（以block为单位）
 static const unsigned int POSITION_DISKINODE = 2;
-// 每个Block中DiskInode的数量
 static const int NUM_INODE_PER_BLOCK = SIZE_BLOCK / SIZE_DISKINODE;
 
-// SuperBlock中能够管理的最大空闲Inode与空闲数据盘块的数量
+/**************************************************************
+超级块SuperBlock参数设置
+包含：
+* SuperBlock中能够管理的最大空闲Inode与空闲数据盘块的数量
+* SuperBlock开始的位置（以块号为单位）
+* SuperBlock一组空闲数据盘块的数量
+* SuperBlock本身的大小
+* SuperBlock需要填充的字节数
+***************************************************************/
 static const int NUM_FREE_INODE = 100;
-// SuperBlock开始的位置（以block为单位）
 static const unsigned int POSITION_SUPERBLOCK = 0;
-// SuperBlock一组空闲数据盘块的数量
 static const int NUM_FREE_BLOCK_GROUP = 100;
-// SuperBlock本身有的大小
 static const int SIZE_SUPERBLOCK = 816;
-// SuperBlock需要填充的字节数
 static const int SIZE_PADDING = POSITION_DISKINODE * SIZE_BLOCK - SIZE_SUPERBLOCK;
 
-// 数据块Block数量
+/**************************************************************
+数据块Block参数设置
+包含：
+* 数据块Block数量
+* 数据块Block开始的位置（以块号为单位）
+***************************************************************/
 static const int NUM_BLOCK = NUM_BLOCK_ALL - POSITION_DISKINODE - NUM_DISKINODE / NUM_INODE_PER_BLOCK;
-// 数据块Block开始的位置（以block为单位）
 static const unsigned int POSITION_BLOCK = int(POSITION_DISKINODE + SIZE_DISKINODE * NUM_DISKINODE / SIZE_BLOCK);
 
-// 规定：User内容最多占一个BLOCK，即:NUM_USER*(NUM_USER_NAME+NUM_USER_PASSWORD)<=BLOCK_SIZE
-// User中最多用户数
+/**************************************************************
+用户User参数设置（预留位置）
+虽然我们只有ROOT，但是结构设计好
+保存在数据区的第二个数据块（35号）
+User内容最多占一个BLOCK，即:NUM_USER*(NUM_USER_NAME+NUM_USER_PASSWORD)<=BLOCK_SIZE（512）
+包含：
+* User中最多用户数
+* User用户名称的最大长度
+* User用户密码的最大长度
+* User开始的位置（以块号为单位）
+***************************************************************/
 static const int NUM_USER = 8;
-// User用户名称的最大长度
 static const unsigned int NUM_USER_NAME = (SIZE_BLOCK / NUM_USER - sizeof(short) * 2) / 2;
-// User用户密码的最大长度
 static const unsigned int NUM_USER_PASSWORD = (SIZE_BLOCK / NUM_USER - sizeof(short) * 2) / 2;
-// User开始的位置（以block为单位）
 static const unsigned int POSITION_USER = POSITION_BLOCK + 1;
 
-// BufferManager缓存控制块、缓冲区的数量
+/**************************************************************
+缓存Buffer，缓存控制块BufferManager参数设置
+包含：
+* BufferManager缓存控制块、缓冲区的数量
+* BufferManager缓冲区大小。以Byte为单位
+***************************************************************/
 static const int NUM_BUF = 15;
-// BufferManager缓冲区大小。 以字节为单位
 static const int SIZE_BUFFER = SIZE_BLOCK;
 
-// 规定：根目录在数据区的第一个Block中
-// Directory中一个目录下子目录文件名最大长度
+/**************************************************************
+目录结构Directory，目录树参数设置
+根目录在数据区的第一个Block中（34号）
+包含：
+* Directory中一个目录下子目录文件名最大长度
+* Directory中一个目录下最多子目录个数
+* Directory开始的位置（以块号为单位）
+***************************************************************/
 static const int NUM_FILE_NAME = 28;
-// Directory中一个目录下最多子目录个数
 static const int NUM_SUB_DIR = SIZE_BLOCK / (NUM_FILE_NAME + sizeof(int));
-// Directory开始的位置（以block为单位）
 static const unsigned int POSITION_DIRECTORY = POSITION_BLOCK;
 
-// FileSystem:OpenFileTable中最多打开文件数
+/**************************************************************
+打开文件结构OpenFile参数设置
+包含：
+* FileSystem:OpenFileTable中最多打开文件数
+* FileSystem:IndoeTable中最多Inode数
+***************************************************************/
 static const int NUM_FILE = 100;
-// FileSystem:IndoeTable中最多Inode数
 static const int NUM_INODE = 100;
 
-// i_addr索引设计
-// 大型文件使用的最多的盘块数量
+/**************************************************************
+Inode索引结构i_addr参数设置
+包含：
+* 一个间接索引块中的可以索引的索引块数量
+* 大文件逻辑索引开始的号
+* 大型文件使用的最多的盘块数量
+***************************************************************/
 static const int NUM_FILE_INDEX = SIZE_BLOCK / sizeof(int);
-static const int NUM_BLOCK_IFILE = 5; // 大文件逻辑索引开始的号，表明i_addr[0]-[4]为直接索引，i_addr[5-10]为间接索引
+static const int NUM_BLOCK_IFILE = 5; //这里为5，表明i_addr[0] - [4]为直接索引，i_addr[5 - 10]为间接索引
 static const int NUM_BLOCK_ILARG = NUM_FILE_INDEX * (NUM_I_ADDR - NUM_BLOCK_IFILE) + NUM_BLOCK_IFILE;
+
+/*********************************************下面开始各个数据结构的定义*******************************************************/
 
 /**************************************************************
 * Buf 缓存块Buffer的定义 （也叫缓存控制块）

@@ -7,7 +7,7 @@ int main()
 {
 	// cout << sizeof(DiskInode) << endl;
 	// cout << sizeof(Inode) << endl;
-	cout << "欢迎来到TysonFiles系统!" << endl;
+	cout << "欢迎来到2153698-TysonFiles系统!" << endl;
 	cout << "初始root用户名root，密码root" << endl;
 	// cerr << "错误测试" << endl;
 	cout<< endl;

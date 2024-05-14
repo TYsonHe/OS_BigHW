@@ -174,8 +174,7 @@ void FileSystem::Free(int blkno)
 		pBuf = this->bufManager->GetBlk(blkno);
 
 		// 将s_nfree和s_free[100]写入回收盘块的前101个字节
-		// s_free[0]=回收的盘块号
-		// s_nfree=1
+		// s_free[0]=回收的盘块号，s_nfree=1
 		int* stack = new int[NUM_FREE_BLOCK_GROUP + 1] {0}; // 这里申请了新内存
 		stack[0] = this->spb->s_nfree;// 第一位是链接的上一组的盘块个数
 		for (int i = 0; i < NUM_FREE_BLOCK_GROUP; i++)
@@ -440,7 +439,7 @@ Inode* FileSystem::NameI(string path,bool findDir)
 			return NULL;
 	}
 
-	// 到这个部分说明找到了对应的文件或者目录
+	// 找到了对应的文件或者目录
 	return pInode;
 }
 
